@@ -1,0 +1,98 @@
+// ===== Dark & Nude Variables =====
+$nude-light: #e7d7cc;        // warm beige
+$nude-accent: #d4a373;       // soft gold / nude
+$nude-dark: #b07d62;         // deeper nude for gradient
+$nude-soft: #f5ebe0;         // very light nude (background tint)
+$glass-bg: rgba(20, 18, 24, 0.7);  // deep charcoal with transparency
+$glass-border: rgba(255, 245, 235, 0.15);
+$glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+$sidebar-width: 260px;
+
+// ===== Sidebar Glass =====
+.sidebar-glass {
+  width: $sidebar-width;
+  backdrop-filter: blur(25px) saturate(120%);
+  -webkit-backdrop-filter: blur(25px) saturate(120%);
+  background: linear-gradient(
+                  135deg,
+                  rgba(24, 22, 26, 0.75) 0%,
+                  rgba(40, 35, 38, 0.55) 100%
+  );
+  border-left: 1px solid $glass-border;
+  border-radius: 0 20px 20px 0;   // right side rounded in RTL
+  box-shadow: $glass-shadow, 0 0 15px rgba($nude-accent, 0.1);
+  color: #f5f0eb;  // warm off-white
+  position: relative;
+  z-index: 10;
+  transition: all 0.3s ease;
+
+  // Top line – nude gold gradient
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba($nude-accent, 0.6),
+                    rgba($nude-light, 0.4),
+                    transparent
+    );
+    border-radius: 0 20px 0 0;
+  }
+}
+
+// ===== Sidebar Title =====
+.sidebar-title {
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 12px rgba($nude-accent, 0.3);
+  background: linear-gradient(135deg, $nude-accent, $nude-light);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 2rem;
+}
+
+// ===== Nav Links =====
+.sidebar-link {
+  color: rgba($nude-light, 0.85) !important;
+  border-radius: 12px;
+  margin: 4px 8px;
+  padding: 10px 16px;
+  font-weight: 500;
+  position: relative;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(5px);
+  background: rgba(255, 245, 235, 0.03);
+
+  &:hover {
+    color: #fff !important;
+    background: rgba($nude-accent, 0.15);
+    box-shadow: inset 0 0 10px rgba($nude-accent, 0.15),
+    0 0 10px rgba($nude-accent, 0.1);
+    text-shadow: 0 0 6px rgba($nude-light, 0.5);
+    transform: translateX(-5px); // slight movement
+  }
+
+  // Active state – soft nude gradient with warm glow
+  &.active {
+    color: #2b1f1a !important;  // dark brown text
+    background: linear-gradient(135deg, $nude-accent, $nude-light);
+    box-shadow: 0 0 18px rgba($nude-accent, 0.5), 0 0 35px rgba($nude-light, 0.2);
+    font-weight: 600;
+    text-shadow: none;
+  }
+}
+
+// ===== Main Content – subtle warm background =====
+.main-content {
+  background: #faf7f4;  // very light nude-cream
+  position: relative;
+  z-index: 5;
+  overflow-y: auto;
+}
