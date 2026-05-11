@@ -1,23 +1,32 @@
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import routes from '../../routes';
+import { useAuth } from '../../hooks/useAuth';
 import './Layout.scss';
 import PageTransition from '../PageTransition/PageTransition';
 
 const Layout = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { logout } = useAuth();
     const menuRoutes = routes.filter(r => r.showInMenu);
+
+    const handleLogout = () => {
+        logout();
+        navigate('/', { replace: true });
+    };
 
     return (
         <div className="d-flex" style={{ minHeight: '100vh' }}>
+            {/* Sidebar */}
             <aside className="sidebar-glass d-flex flex-column flex-shrink-0 p-3">
                 <h5 className="sidebar-title mb-4 text-center">پنل ادمین تعمیرگاه 💻</h5>
-                <ul className="nav flex-column">
+                <ul className="nav flex-column flex-grow-1">
                     {menuRoutes.map(route => (
                         <li className="nav-item" key={route.path}>
                             <Link
-                                to={route.path}
+                                to={`/app/${route.path}`}
                                 className={`sidebar-link nav-link ${
-                                    location.pathname === route.path ? 'active' : ''
+                                    location.pathname === `/app/${route.path}` ? 'active' : ''
                                 }`}
                             >
                                 {route.name}
@@ -25,8 +34,19 @@ const Layout = () => {
                         </li>
                     ))}
                 </ul>
+
+
+                <div className="mt-auto pt-3 border-top border-secondary">
+                    <button
+                        onClick={handleLogout}
+                        className="btn btn-outline-light w-100 sidebar-logout-btn"
+                    >
+                        خروج از سیستم
+                    </button>
+                </div>
             </aside>
 
+            {/* Main content */}
             <main className="flex-grow-1 p-4 main-content">
                 <PageTransition>
                     <Outlet />
