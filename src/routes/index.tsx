@@ -1,19 +1,15 @@
 import { lazy } from 'react';
-import type {IRoute} from "../Models/IRoute.ts"
-
-
+import type { IRoute } from '../Models/IRoute';
 
 const PCServices = lazy(() => import('../Features/PCServices/PCServices.tsx'));
-const  WorkersServices= lazy(() => import('../Features/WorkersServices/WorkersServices.tsx'));
-const  FinancialService= lazy(() => import('../Features/Financial/FinancialService.tsx'));
-const  CustomersServices= lazy(() => import('../Features/CustomersService/CustomersService.tsx'));
-
-
+const WorkersServices = lazy(() => import('../Features/WorkersServices/WorkersServices.tsx'));
+const FinancialService = lazy(() => import('../Features/Financial/FinancialService.tsx'));
+const CustomersServices = lazy(() => import('../Features/CustomersService/CustomersService.tsx'));
 
 const routes: IRoute[] = [
     {
         path: '/',
-        component: lazy(() => import('../Features/PCServices/PCServices.tsx')), //Default page
+        component: PCServices, // reuse the same lazy-loaded component
         name: 'Home',
         showInMenu: false,
     },
@@ -27,7 +23,7 @@ const routes: IRoute[] = [
         path: '/WorkersServices',
         component: WorkersServices,
         name: 'مدیریت تعمیرکاران',
-        showInMenu: true,  // if false: public standalone page, not in main sidebar
+        showInMenu: true,
     },
     {
         path: '/CustomersServices',
@@ -41,7 +37,6 @@ const routes: IRoute[] = [
         name: 'مدیریت مالی',
         showInMenu: true,
     },
-    // ...future routes
 ];
 
 export default routes;

@@ -1,27 +1,26 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { Suspense } from 'react';
-import routes from './index';
 import Layout from '../Components/Layout/Layout';
+import LoadingSpinner from '../Components/LoadingSpinner/LoadingSpinner';
+import routes from './index';
 
+const router = createBrowserRouter([
+    {
+        element: <Layout />,
+        children: routes.map((route) => ({
+            path: route.path === '/' ? undefined : route.path,   // root becomes index
+            index: route.path === '/',
+            element: (
+                <Suspense fallback={<LoadingSpinner />}>
+                    <route.component />
+                </Suspense>
+            ),
+        })),
+    },
+]);
 
 const AppRouter = () => {
-    return (
-        <BrowserRouter>
-            <Layout>
-                <Suspense >
-                    <Routes>
-                        {routes.map((route) => (
-                            <Route
-                                key={route.path}
-                                path={route.path}
-                                element={<route.component />}
-                            />
-                        ))}
-                    </Routes>
-                </Suspense>
-            </Layout>
-        </BrowserRouter>
-    );
+    return <RouterProvider router={router} />;
 };
 
 export default AppRouter;

@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import AppRouter from './routes/AppRouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import './Components/PageLoader/PageLoader.scss';
 
 
 import 'bootstrap/dist/css/bootstrap.rtl.min.css';

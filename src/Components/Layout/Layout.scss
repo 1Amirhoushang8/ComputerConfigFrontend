@@ -1,14 +1,14 @@
 // ===== Dark & Nude Variables =====
-$nude-light: #e7d7cc;        // warm beige
-$nude-accent: #d4a373;       // soft gold / nude
-$nude-dark: #b07d62;         // deeper nude for gradient
-$nude-soft: #f5ebe0;         // very light nude (background tint)
-$glass-bg: rgba(20, 18, 24, 0.7);  // deep charcoal with transparency
+$nude-light: #aca8a5;
+$nude-accent: #d3d3d3;
+$nude-dark: #8e4001;
+$nude-soft: #f5ebe0;
+$glass-bg: rgba(20, 18, 24, 0.7);
 $glass-border: rgba(255, 245, 235, 0.15);
 $glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 $sidebar-width: 260px;
 
-// ===== Sidebar Glass =====
+
 .sidebar-glass {
   width: $sidebar-width;
   backdrop-filter: blur(25px) saturate(120%);
@@ -19,9 +19,8 @@ $sidebar-width: 260px;
                   rgba(40, 35, 38, 0.55) 100%
   );
   border-left: 1px solid $glass-border;
-  border-radius: 0 20px 20px 0;   // right side rounded in RTL
   box-shadow: $glass-shadow, 0 0 15px rgba($nude-accent, 0.1);
-  color: #f5f0eb;  // warm off-white
+  color: #f5f0eb;
   position: relative;
   z-index: 10;
   transition: all 0.3s ease;
@@ -76,12 +75,12 @@ $sidebar-width: 260px;
     box-shadow: inset 0 0 10px rgba($nude-accent, 0.15),
     0 0 10px rgba($nude-accent, 0.1);
     text-shadow: 0 0 6px rgba($nude-light, 0.5);
-    transform: translateX(-5px); // slight movement
+    transform: translateX(-5px);
   }
 
   // Active state – soft nude gradient with warm glow
   &.active {
-    color: #2b1f1a !important;  // dark brown text
+    color: #2b1f1a !important;
     background: linear-gradient(135deg, $nude-accent, $nude-light);
     box-shadow: 0 0 18px rgba($nude-accent, 0.5), 0 0 35px rgba($nude-light, 0.2);
     font-weight: 600;
@@ -91,7 +90,7 @@ $sidebar-width: 260px;
 
 // ===== Main Content – subtle warm background =====
 .main-content {
-  background: #faf7f4;  // very light nude-cream
+  background: #faf7f4;
   position: relative;
   z-index: 5;
   overflow-y: auto;
