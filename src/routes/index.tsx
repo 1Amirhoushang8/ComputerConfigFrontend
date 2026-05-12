@@ -25,6 +25,7 @@ const routes: IRoute[] = [
         component: CustomersServices,
         name: 'مدیریت مشتری ها',
         showInMenu: true,
+        roles: ['admin', 'worker'],
     },
     {
         path: 'FinancialService',

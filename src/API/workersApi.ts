@@ -5,6 +5,8 @@ export interface WorkerListItem {
     fullName: string;
     phoneNumber: string;
     personalId: string;
+    email: string;
+    specialty: string;
     activeTicketCount: number;
     currentStatus: string;
 }
@@ -14,6 +16,7 @@ export interface UpdateWorkerPayload {
     phoneNumber: string;
     email: string;
     personalId: string;
+    specialty: string;
 }
 
 export interface RegisterWorkerPayload {
@@ -21,8 +24,10 @@ export interface RegisterWorkerPayload {
     phoneNumber: string;
     email: string;
     personalId: string;
+
     password: string;
     role: string;
+    specialty: string;
 }
 
 export const fetchWorkers = async (): Promise<WorkerListItem[]> => {

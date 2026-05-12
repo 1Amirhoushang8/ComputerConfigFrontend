@@ -1,0 +1,16 @@
+.btn-nude {
+  background: linear-gradient(135deg, #535353, #f5ebe0);
+  color: #2b1f1a;
+  font-weight: 600;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 0.5rem;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 10px rgba(149, 129, 119, 0.25);
+}
+
+.btn-nude:hover {
+  background: linear-gradient(135deg, #afafaf, #e8d5c0);
+  box-shadow: 0 0 18px rgba(122, 97, 80, 0.45);
+  color: #1a100a;
+}

@@ -36,6 +36,15 @@ const router = createBrowserRouter([
                     </Suspense>
                 ),
             })),
+
+            {
+                path: 'customer-services/:customerId',
+                element: <div>صفحه سرویس‌های مشتری (در حال ساخت)</div>,
+            },
+            {
+                path: 'customer-requests/:customerId',
+                element: <div>صفحه درخواست‌های مشتری (در حال ساخت)</div>,
+            },
         ],
     },
 ]);

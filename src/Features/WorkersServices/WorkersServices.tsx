@@ -11,6 +11,7 @@ import {
 } from '../../API/workersApi';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable, { type Column, type Action } from '../../Components/DataTable/DataTable';
+import "./WorkersServices.scss"
 
 const phoneRegex = /^09\d{9}$/;
 const passwordRegex = /^[a-zA-Z0-9]+$/;
@@ -31,6 +32,7 @@ const WorkersServices = () => {
         phoneNumber: '',
         email: '',
         personalId: '',
+        specialty: '',
     });
     const [savingEdit, setSavingEdit] = useState(false);
     const [editError, setEditError] = useState('');
@@ -44,6 +46,7 @@ const WorkersServices = () => {
         personalId: '',
         password: '',
         role: 'worker',
+        specialty: '',
     });
     const [savingAdd, setSavingAdd] = useState(false);
     const [addError, setAddError] = useState('');
@@ -53,18 +56,20 @@ const WorkersServices = () => {
         email?: string;
         personalId?: string;
         password?: string;
+        specialty?: string;
     }>({});
 
     const isAdmin = user?.role === 'admin';
 
-    // ---------- Callbacks (before any early return) ----------
+    // ---------- Callbacks ----------
     const openEditModal = useCallback((worker: WorkerListItem) => {
         setSelectedWorker(worker);
         setEditForm({
             fullName: worker.fullName,
             phoneNumber: worker.phoneNumber,
-            email: '',               // email not in list, leave empty for editing
+            email: worker.email || '',
             personalId: worker.personalId,
+            specialty: worker.specialty,
         });
         setEditError('');
         setShowEditModal(true);
@@ -90,7 +95,6 @@ const WorkersServices = () => {
         })();
     }, [isAdmin]);
 
-    // Redirect non‑admin after hooks
     if (!isAdmin) {
         return <Navigate to="/app/PCServices" replace />;
     }
@@ -123,7 +127,7 @@ const WorkersServices = () => {
         }
     };
 
-    // ---------- Add worker handlers ----------
+    // ---------- Add handlers ----------
     const openAddModal = () => {
         setAddForm({
             fullName: '',
@@ -132,6 +136,7 @@ const WorkersServices = () => {
             personalId: '',
             password: '',
             role: 'worker',
+            specialty: '',
         });
         setAddFieldErrors({});
         setAddError('');
@@ -151,15 +156,18 @@ const WorkersServices = () => {
             email?: string;
             personalId?: string;
             password?: string;
+            specialty?: string;
         } = {};
 
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
-        if (!addForm.email.trim()) errors.email = 'ایمیل الزامی است.';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email)) errors.email = 'ایمیل نامعتبر است.';
+        // email is optional, so no required check
+        if (addForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email))
+            errors.email = 'ایمیل نامعتبر است.';
         if (!personalIdRegex.test(addForm.personalId))
             errors.personalId = 'کد ملی باید دقیقاً ۱۰ رقم باشد.';
+        if (!addForm.specialty.trim()) errors.specialty = 'تخصص الزامی است.';
         if (addForm.password.length < 6) errors.password = 'رمز عبور باید حداقل ۶ کاراکتر باشد.';
         else if (!passwordRegex.test(addForm.password))
             errors.password = 'رمز عبور فقط می‌تواند شامل حروف انگلیسی و اعداد باشد.';
@@ -193,6 +201,17 @@ const WorkersServices = () => {
     const columns: Column<WorkerListItem>[] = [
         { key: 'fullName', header: 'نام کامل' },
         { key: 'phoneNumber', header: 'شماره موبایل', className: 'text-start', render: (value) => <span dir="ltr">{value as string}</span> },
+        {
+            key: 'email',
+            header: 'ایمیل',
+            className: 'text-start',
+            render: (value) => (
+                <span dir="ltr">
+          {(value as string)?.trim() ? (value as string) : 'ندارد'}
+        </span>
+            ),
+        },
+        { key: 'specialty', header: 'تخصص' },
         { key: 'personalId', header: 'کد ملی' },
         {
             key: 'activeTicketCount',
@@ -223,7 +242,7 @@ const WorkersServices = () => {
         <div className="container-fluid">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2>مدیریت تعمیرکاران</h2>
-                <button className="btn btn-success" onClick={openAddModal}>
+                <button className="btn btn-nude" onClick={openAddModal}>
                     + افزودن تعمیرکار
                 </button>
             </div>
@@ -278,6 +297,7 @@ const WorkersServices = () => {
                                     value={editForm.email}
                                     onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                                     dir="ltr"
+                                    placeholder="اختیاری"
                                 />
                             </div>
                             <div className="mb-3">
@@ -287,6 +307,16 @@ const WorkersServices = () => {
                                     className="form-control"
                                     value={editForm.personalId}
                                     onChange={(e) => setEditForm({ ...editForm, personalId: e.target.value })}
+                                />
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">تخصص</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={editForm.specialty}
+                                    onChange={(e) => setEditForm({ ...editForm, specialty: e.target.value })}
+                                    placeholder="مانند: سخت‌افزار، نرم‌افزار"
                                 />
                             </div>
                         </div>
@@ -348,9 +378,9 @@ const WorkersServices = () => {
                                 {addFieldErrors.phoneNumber && <div className="invalid-feedback">{addFieldErrors.phoneNumber}</div>}
                             </div>
 
-                            {/* Email */}
+                            {/* Email (optional) */}
                             <div className="mb-3">
-                                <label className="form-label">ایمیل *</label>
+                                <label className="form-label">ایمیل</label>
                                 <input
                                     type="email"
                                     className={`form-control ${addFieldErrors.email ? 'is-invalid' : ''}`}
@@ -360,7 +390,7 @@ const WorkersServices = () => {
                                         if (addFieldErrors.email) setAddFieldErrors(prev => ({ ...prev, email: undefined }));
                                     }}
                                     dir="ltr"
-                                    required
+                                    placeholder="اختیاری"
                                 />
                                 {addFieldErrors.email && <div className="invalid-feedback">{addFieldErrors.email}</div>}
                             </div>
@@ -382,6 +412,23 @@ const WorkersServices = () => {
                                 />
                                 {addFieldErrors.personalId && <div className="invalid-feedback">{addFieldErrors.personalId}</div>}
                                 <small className="form-text text-muted">باید دقیقاً ۱۰ رقم باشد</small>
+                            </div>
+
+                            {/* Specialty */}
+                            <div className="mb-3">
+                                <label className="form-label">تخصص *</label>
+                                <input
+                                    type="text"
+                                    className={`form-control ${addFieldErrors.specialty ? 'is-invalid' : ''}`}
+                                    value={addForm.specialty}
+                                    onChange={(e) => {
+                                        setAddForm({ ...addForm, specialty: e.target.value });
+                                        if (addFieldErrors.specialty) setAddFieldErrors(prev => ({ ...prev, specialty: undefined }));
+                                    }}
+                                    placeholder="مانند: سخت‌افزار، نرم‌افزار"
+                                    required
+                                />
+                                {addFieldErrors.specialty && <div className="invalid-feedback">{addFieldErrors.specialty}</div>}
                             </div>
 
                             {/* Password */}
