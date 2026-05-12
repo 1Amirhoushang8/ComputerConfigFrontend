@@ -1,36 +1,78 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
-import { fetchWorkers, updateWorker, type WorkerListItem, type UpdateWorkerPayload } from '../../API/workersApi';
+import {
+    fetchWorkers,
+    updateWorker,
+    registerWorker,
+    type WorkerListItem,
+    type UpdateWorkerPayload,
+    type RegisterWorkerPayload,
+} from '../../API/workersApi';
 import { useAuth } from '../../hooks/useAuth';
+import DataTable, { type Column, type Action } from '../../Components/DataTable/DataTable';
+
+const phoneRegex = /^09\d{9}$/;
+const passwordRegex = /^[a-zA-Z0-9]+$/;
+const personalIdRegex = /^\d{10}$/;
 
 const WorkersServices = () => {
     const { user } = useAuth();
 
-    // All hooks at the top – no conditional returns before them
     const [workers, setWorkers] = useState<WorkerListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Modal states
-    const [showModal, setShowModal] = useState(false);
+    // ---------- Edit modal ----------
+    const [showEditModal, setShowEditModal] = useState(false);
     const [selectedWorker, setSelectedWorker] = useState<WorkerListItem | null>(null);
-    const [formData, setFormData] = useState<UpdateWorkerPayload>({
+    const [editForm, setEditForm] = useState<UpdateWorkerPayload>({
         fullName: '',
         phoneNumber: '',
         email: '',
         personalId: '',
     });
-    const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState('');
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [editError, setEditError] = useState('');
+
+    // ---------- Add worker modal ----------
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [addForm, setAddForm] = useState<RegisterWorkerPayload>({
+        fullName: '',
+        phoneNumber: '',
+        email: '',
+        personalId: '',
+        password: '',
+        role: 'worker',
+    });
+    const [savingAdd, setSavingAdd] = useState(false);
+    const [addError, setAddError] = useState('');
+    const [addFieldErrors, setAddFieldErrors] = useState<{
+        fullName?: string;
+        phoneNumber?: string;
+        email?: string;
+        personalId?: string;
+        password?: string;
+    }>({});
 
     const isAdmin = user?.role === 'admin';
 
-    // Load workers only if admin – called unconditionally
-    useEffect(() => {
-        if (!isAdmin) return;   // Early return – no setState needed, redirect will handle it
+    // ---------- Callbacks (before any early return) ----------
+    const openEditModal = useCallback((worker: WorkerListItem) => {
+        setSelectedWorker(worker);
+        setEditForm({
+            fullName: worker.fullName,
+            phoneNumber: worker.phoneNumber,
+            email: '',               // email not in list, leave empty for editing
+            personalId: worker.personalId,
+        });
+        setEditError('');
+        setShowEditModal(true);
+    }, []);
 
-        const load = async () => {
+    useEffect(() => {
+        if (!isAdmin) return;
+        (async () => {
             setLoading(true);
             setError('');
             try {
@@ -45,134 +87,175 @@ const WorkersServices = () => {
             } finally {
                 setLoading(false);
             }
-        };
-
-        load();
+        })();
     }, [isAdmin]);
 
-    // If not admin, redirect (but after hooks)
+    // Redirect non‑admin after hooks
     if (!isAdmin) {
         return <Navigate to="/app/PCServices" replace />;
     }
 
-    const handleEdit = (worker: WorkerListItem) => {
-        setSelectedWorker(worker);
-        setFormData({
-            fullName: worker.fullName,
-            phoneNumber: worker.phoneNumber,
-            email: '',               // email not in list, backend expects it, leave empty
-            personalId: worker.personalId,
-        });
-        setSaveError('');
-        setShowModal(true);
-    };
-
-    const handleCloseModal = () => {
-        setShowModal(false);
+    // ---------- Edit handlers ----------
+    const closeEditModal = () => {
+        setShowEditModal(false);
         setSelectedWorker(null);
-        setSaveError('');
+        setEditError('');
     };
 
-    const handleSave = async () => {
+    const handleEditSave = async () => {
         if (!selectedWorker) return;
-
-        setSaving(true);
-        setSaveError('');
+        setSavingEdit(true);
+        setEditError('');
         try {
-            await updateWorker(selectedWorker.id, formData);
-            handleCloseModal();
-            // Refresh list
+            await updateWorker(selectedWorker.id, editForm);
+            closeEditModal();
             const data = await fetchWorkers();
             setWorkers(data);
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
                 const msg = err.response.data?.message || err.response.data;
-                setSaveError(typeof msg === 'string' ? msg : 'خطا در بروزرسانی');
+                setEditError(typeof msg === 'string' ? msg : 'خطا در بروزرسانی');
             } else {
-                setSaveError('خطا در بروزرسانی');
+                setEditError('خطا در بروزرسانی');
             }
         } finally {
-            setSaving(false);
+            setSavingEdit(false);
         }
     };
 
-    // ---- RENDER ----
-    if (loading) {
-        return (
-            <div className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
-                <div className="spinner-border text-secondary" role="status">
-                    <span className="visually-hidden">در حال بارگذاری...</span>
-                </div>
-            </div>
-        );
-    }
+    // ---------- Add worker handlers ----------
+    const openAddModal = () => {
+        setAddForm({
+            fullName: '',
+            phoneNumber: '',
+            email: '',
+            personalId: '',
+            password: '',
+            role: 'worker',
+        });
+        setAddFieldErrors({});
+        setAddError('');
+        setShowAddModal(true);
+    };
 
-    if (error) {
-        return <div className="alert alert-danger">{error}</div>;
-    }
+    const closeAddModal = () => {
+        setShowAddModal(false);
+        setAddError('');
+        setAddFieldErrors({});
+    };
+
+    const validateAddForm = (): boolean => {
+        const errors: {
+            fullName?: string;
+            phoneNumber?: string;
+            email?: string;
+            personalId?: string;
+            password?: string;
+        } = {};
+
+        if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
+        if (!phoneRegex.test(addForm.phoneNumber))
+            errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
+        if (!addForm.email.trim()) errors.email = 'ایمیل الزامی است.';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email)) errors.email = 'ایمیل نامعتبر است.';
+        if (!personalIdRegex.test(addForm.personalId))
+            errors.personalId = 'کد ملی باید دقیقاً ۱۰ رقم باشد.';
+        if (addForm.password.length < 6) errors.password = 'رمز عبور باید حداقل ۶ کاراکتر باشد.';
+        else if (!passwordRegex.test(addForm.password))
+            errors.password = 'رمز عبور فقط می‌تواند شامل حروف انگلیسی و اعداد باشد.';
+
+        setAddFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleAddSave = async () => {
+        if (!validateAddForm()) return;
+        setSavingAdd(true);
+        setAddError('');
+        try {
+            await registerWorker(addForm);
+            closeAddModal();
+            const data = await fetchWorkers();
+            setWorkers(data);
+        } catch (err: unknown) {
+            if (isAxiosError(err) && err.response) {
+                const msg = err.response.data?.message || err.response.data;
+                setAddError(typeof msg === 'string' ? msg : 'خطا در ثبت نام');
+            } else {
+                setAddError('خطا در ثبت نام');
+            }
+        } finally {
+            setSavingAdd(false);
+        }
+    };
+
+    // ---------- DataTable columns ----------
+    const columns: Column<WorkerListItem>[] = [
+        { key: 'fullName', header: 'نام کامل' },
+        { key: 'phoneNumber', header: 'شماره موبایل', className: 'text-start', render: (value) => <span dir="ltr">{value as string}</span> },
+        { key: 'personalId', header: 'کد ملی' },
+        {
+            key: 'activeTicketCount',
+            header: 'سرویس‌های فعال',
+            render: (value) => <strong>{value as number}</strong>,
+        },
+        {
+            key: 'currentStatus',
+            header: 'وضعیت',
+            render: (value) => (
+                <span className={`badge rounded-pill ${value === 'فعال' ? 'bg-success' : 'bg-secondary'}`}>
+          {value as string}
+        </span>
+            ),
+        },
+    ];
+
+    const actions: Action<WorkerListItem>[] = [
+        {
+            label: 'ویرایش',
+            onClick: openEditModal,
+            requiredRoles: ['admin'],
+            className: 'btn-outline-primary',
+        },
+    ];
 
     return (
         <div className="container-fluid">
-            <h2 className="mb-4">مدیریت تعمیرکاران</h2>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2>مدیریت تعمیرکاران</h2>
+                <button className="btn btn-success" onClick={openAddModal}>
+                    + افزودن تعمیرکار
+                </button>
+            </div>
 
-            {workers.length === 0 ? (
-                <div className="alert alert-info">هیچ تعمیرکاری ثبت نشده است.</div>
-            ) : (
-                <div className="table-responsive">
-                    <table className="table table-striped table-hover align-middle">
-                        <thead className="table-dark">
-                        <tr>
-                            <th>#</th>
-                            <th>نام کامل</th>
-                            <th>شماره موبایل</th>
-                            <th>کد ملی</th>
-                            <th>سرویس‌های فعال</th>
-                            <th>وضعیت</th>
-                            <th>عملیات</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {workers.map((worker, idx) => (
-                            <tr key={worker.id}>
-                                <td>{idx + 1}</td>
-                                <td>{worker.fullName}</td>
-                                <td dir="ltr" className="text-start">{worker.phoneNumber}</td>
-                                <td>{worker.personalId}</td>
-                                <td>{worker.activeTicketCount}</td>
-                                <td>
-                    <span className={`badge rounded-pill ${worker.currentStatus === 'فعال' ? 'bg-success' : 'bg-secondary'}`}>
-                      {worker.currentStatus}
-                    </span>
-                                </td>
-                                <td>
-                                    <button className="btn btn-sm btn-outline-primary" onClick={() => handleEdit(worker)}>
-                                        ویرایش
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            <DataTable
+                data={workers}
+                columns={columns}
+                keyExtractor={(w) => w.id}
+                actions={actions}
+                userRole={user?.role}
+                loading={loading}
+                error={error}
+                emptyMessage="هیچ تعمیرکاری ثبت نشده است."
+            />
 
-            {/* Edit Modal – no isActive checkbox */}
-            <div className={`modal fade ${showModal ? 'show' : ''}`} style={{ display: showModal ? 'block' : 'none' }} tabIndex={-1}>
+            {/* ===== EDIT MODAL ===== */}
+            <div className={`modal fade ${showEditModal ? 'show' : ''}`} style={{ display: showEditModal ? 'block' : 'none' }} tabIndex={-1}>
                 <div className="modal-dialog">
                     <div className="modal-content" dir="rtl">
                         <div className="modal-header">
                             <h5 className="modal-title">ویرایش اطلاعات تعمیرکار</h5>
-                            <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                            <button type="button" className="btn-close" onClick={closeEditModal}></button>
                         </div>
                         <div className="modal-body">
-                            {saveError && <div className="alert alert-danger py-2">{saveError}</div>}
+                            {editError && <div className="alert alert-danger py-2">{editError}</div>}
                             <div className="mb-3">
                                 <label className="form-label">نام کامل</label>
                                 <input
                                     type="text"
                                     className="form-control"
-                                    value={formData.fullName}
-                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                    value={editForm.fullName}
+                                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
                                     required
                                 />
                             </div>
@@ -181,8 +264,8 @@ const WorkersServices = () => {
                                 <input
                                     type="text"
                                     className="form-control"
-                                    value={formData.phoneNumber}
-                                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                    value={editForm.phoneNumber}
+                                    onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
                                     dir="ltr"
                                     required
                                 />
@@ -192,8 +275,8 @@ const WorkersServices = () => {
                                 <input
                                     type="email"
                                     className="form-control"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    value={editForm.email}
+                                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                                     dir="ltr"
                                 />
                             </div>
@@ -202,23 +285,135 @@ const WorkersServices = () => {
                                 <input
                                     type="text"
                                     className="form-control"
-                                    value={formData.personalId}
-                                    onChange={(e) => setFormData({ ...formData, personalId: e.target.value })}
+                                    value={editForm.personalId}
+                                    onChange={(e) => setEditForm({ ...editForm, personalId: e.target.value })}
                                 />
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" onClick={handleCloseModal} disabled={saving}>
+                            <button type="button" className="btn btn-secondary" onClick={closeEditModal} disabled={savingEdit}>
                                 انصراف
                             </button>
-                            <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                                {saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
+                            <button type="button" className="btn btn-primary" onClick={handleEditSave} disabled={savingEdit}>
+                                {savingEdit ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-            {showModal && <div className="modal-backdrop fade show" onClick={handleCloseModal}></div>}
+            {showEditModal && <div className="modal-backdrop fade show" onClick={closeEditModal}></div>}
+
+            {/* ===== ADD WORKER MODAL ===== */}
+            <div className={`modal fade ${showAddModal ? 'show' : ''}`} style={{ display: showAddModal ? 'block' : 'none' }} tabIndex={-1}>
+                <div className="modal-dialog">
+                    <div className="modal-content" dir="rtl">
+                        <div className="modal-header">
+                            <h5 className="modal-title">افزودن تعمیرکار جدید</h5>
+                            <button type="button" className="btn-close" onClick={closeAddModal}></button>
+                        </div>
+                        <div className="modal-body">
+                            {addError && <div className="alert alert-danger py-2">{addError}</div>}
+
+                            {/* Full Name */}
+                            <div className="mb-3">
+                                <label className="form-label">نام کامل *</label>
+                                <input
+                                    type="text"
+                                    className={`form-control ${addFieldErrors.fullName ? 'is-invalid' : ''}`}
+                                    value={addForm.fullName}
+                                    onChange={(e) => {
+                                        setAddForm({ ...addForm, fullName: e.target.value });
+                                        if (addFieldErrors.fullName) setAddFieldErrors(prev => ({ ...prev, fullName: undefined }));
+                                    }}
+                                    required
+                                />
+                                {addFieldErrors.fullName && <div className="invalid-feedback">{addFieldErrors.fullName}</div>}
+                            </div>
+
+                            {/* Phone */}
+                            <div className="mb-3">
+                                <label className="form-label">شماره موبایل *</label>
+                                <input
+                                    type="text"
+                                    className={`form-control ${addFieldErrors.phoneNumber ? 'is-invalid' : ''}`}
+                                    value={addForm.phoneNumber}
+                                    onChange={(e) => {
+                                        setAddForm({ ...addForm, phoneNumber: e.target.value });
+                                        if (addFieldErrors.phoneNumber) setAddFieldErrors(prev => ({ ...prev, phoneNumber: undefined }));
+                                    }}
+                                    dir="ltr"
+                                    placeholder="09xxxxxxxxx"
+                                    required
+                                />
+                                {addFieldErrors.phoneNumber && <div className="invalid-feedback">{addFieldErrors.phoneNumber}</div>}
+                            </div>
+
+                            {/* Email */}
+                            <div className="mb-3">
+                                <label className="form-label">ایمیل *</label>
+                                <input
+                                    type="email"
+                                    className={`form-control ${addFieldErrors.email ? 'is-invalid' : ''}`}
+                                    value={addForm.email}
+                                    onChange={(e) => {
+                                        setAddForm({ ...addForm, email: e.target.value });
+                                        if (addFieldErrors.email) setAddFieldErrors(prev => ({ ...prev, email: undefined }));
+                                    }}
+                                    dir="ltr"
+                                    required
+                                />
+                                {addFieldErrors.email && <div className="invalid-feedback">{addFieldErrors.email}</div>}
+                            </div>
+
+                            {/* Personal ID */}
+                            <div className="mb-3">
+                                <label className="form-label">کد ملی *</label>
+                                <input
+                                    type="text"
+                                    className={`form-control ${addFieldErrors.personalId ? 'is-invalid' : ''}`}
+                                    value={addForm.personalId}
+                                    onChange={(e) => {
+                                        setAddForm({ ...addForm, personalId: e.target.value });
+                                        if (addFieldErrors.personalId) setAddFieldErrors(prev => ({ ...prev, personalId: undefined }));
+                                    }}
+                                    inputMode="numeric"
+                                    maxLength={10}
+                                    required
+                                />
+                                {addFieldErrors.personalId && <div className="invalid-feedback">{addFieldErrors.personalId}</div>}
+                                <small className="form-text text-muted">باید دقیقاً ۱۰ رقم باشد</small>
+                            </div>
+
+                            {/* Password */}
+                            <div className="mb-3">
+                                <label className="form-label">رمز عبور *</label>
+                                <input
+                                    type="password"
+                                    className={`form-control ${addFieldErrors.password ? 'is-invalid' : ''}`}
+                                    value={addForm.password}
+                                    onChange={(e) => {
+                                        setAddForm({ ...addForm, password: e.target.value });
+                                        if (addFieldErrors.password) setAddFieldErrors(prev => ({ ...prev, password: undefined }));
+                                    }}
+                                    dir="ltr"
+                                    required
+                                />
+                                {addFieldErrors.password && <div className="invalid-feedback">{addFieldErrors.password}</div>}
+                                <small className="form-text text-muted">حداقل ۶ کاراکتر، فقط حروف انگلیسی و اعداد</small>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" className="btn btn-secondary" onClick={closeAddModal} disabled={savingAdd}>
+                                انصراف
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={handleAddSave} disabled={savingAdd}>
+                                {savingAdd ? 'در حال ثبت...' : 'ثبت تعمیرکار'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {showAddModal && <div className="modal-backdrop fade show" onClick={closeAddModal}></div>}
         </div>
     );
 };

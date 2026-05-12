@@ -14,7 +14,15 @@ export interface UpdateWorkerPayload {
     phoneNumber: string;
     email: string;
     personalId: string;
+}
 
+export interface RegisterWorkerPayload {
+    fullName: string;
+    phoneNumber: string;
+    email: string;
+    personalId: string;
+    password: string;
+    role: string;
 }
 
 export const fetchWorkers = async (): Promise<WorkerListItem[]> => {
@@ -24,5 +32,10 @@ export const fetchWorkers = async (): Promise<WorkerListItem[]> => {
 
 export const updateWorker = async (id: number, data: UpdateWorkerPayload) => {
     const response = await api.put(`/workers/${id}`, data);
+    return response.data;
+};
+
+export const registerWorker = async (data: RegisterWorkerPayload) => {
+    const response = await api.post('/auth/register', data);
     return response.data;
 };
