@@ -18,6 +18,7 @@ const routes: IRoute[] = [
         component: WorkersServices,
         name: 'مدیریت تعمیرکاران',
         showInMenu: true,
+        roles: ['admin'],
     },
     {
         path: 'CustomersServices',
@@ -30,6 +31,7 @@ const routes: IRoute[] = [
         component: FinancialService,
         name: 'مدیریت مالی',
         showInMenu: true,
+        roles: ['admin'],
     },
 ];
 
