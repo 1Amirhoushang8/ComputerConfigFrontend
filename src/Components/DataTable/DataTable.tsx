@@ -1,34 +1,7 @@
 import { type ReactNode } from 'react';
 import './DataTable.scss';
+import type{DataTableProps} from "../../Models/DataTable.ts"
 
-export interface Column<T> {
-    key: keyof T;
-    header: string;
-
-    render?: (value: T[keyof T], row: T) => ReactNode;
-    className?: string;
-}
-
-export interface Action<T> {
-    label: string;
-    onClick: (row: T) => void;
-
-    requiredRoles?: string[];
-    className?: string;
-    disabled?: boolean;
-}
-
-interface DataTableProps<T> {
-    data: T[];
-    columns: Column<T>[];
-
-    keyExtractor: (row: T) => string | number;
-    actions?: Action<T>[];
-    userRole?: string | null;
-    loading?: boolean;
-    error?: string;
-    emptyMessage?: string;
-}
 
 const DataTable = <T,>({
                            data,

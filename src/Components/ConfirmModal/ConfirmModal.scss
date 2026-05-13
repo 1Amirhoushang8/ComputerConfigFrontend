@@ -1,0 +1,17 @@
+.confirm-modal {
+  .modal-content {
+    border-radius: 1rem;
+    overflow: hidden;
+    .modal-header {
+      background: #1f1a16;
+      color: #f5ebe0;
+    }
+    .modal-body {
+      font-weight: 500;
+      padding: 1.5rem;
+    }
+    .modal-footer {
+      justify-content: flex-start;
+    }
+  }
+}

@@ -44,3 +44,9 @@ export const registerWorker = async (data: RegisterWorkerPayload) => {
     const response = await api.post('/auth/register', data);
     return response.data;
 };
+
+
+export const deleteWorker = async (id: number) => {
+    const response = await api.delete(`/workers/${id}`);
+    return response.data;
+};

@@ -5,13 +5,16 @@ import {
     fetchWorkers,
     updateWorker,
     registerWorker,
+    deleteWorker,
     type WorkerListItem,
     type UpdateWorkerPayload,
     type RegisterWorkerPayload,
 } from '../../API/workersApi';
 import { useAuth } from '../../hooks/useAuth';
-import DataTable, { type Column, type Action } from '../../Components/DataTable/DataTable';
-import "./WorkersServices.scss"
+import DataTable from '../../Components/DataTable/DataTable';
+import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
+import "./WorkersServices.scss";
+import type {Column, Action} from "../../Models/DataTable.ts"
 
 const phoneRegex = /^09\d{9}$/;
 const passwordRegex = /^[a-zA-Z0-9]+$/;
@@ -59,9 +62,13 @@ const WorkersServices = () => {
         specialty?: string;
     }>({});
 
+    // ---------- Delete confirmation modal ----------
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [workerToDelete, setWorkerToDelete] = useState<WorkerListItem | null>(null);
+
     const isAdmin = user?.role === 'admin';
 
-    // ---------- Callbacks ----------
+    // ---------- Callbacks (must be before any early return) ----------
     const openEditModal = useCallback((worker: WorkerListItem) => {
         setSelectedWorker(worker);
         setEditForm({
@@ -73,6 +80,34 @@ const WorkersServices = () => {
         });
         setEditError('');
         setShowEditModal(true);
+    }, []);
+
+    const requestDelete = useCallback((worker: WorkerListItem) => {
+        setWorkerToDelete(worker);
+        setShowDeleteConfirm(true);
+    }, []);
+
+    const handleDeleteConfirmed = useCallback(async () => {
+        if (!workerToDelete) return;
+        try {
+            await deleteWorker(workerToDelete.id);
+            setShowDeleteConfirm(false);
+            setWorkerToDelete(null);
+            // Refresh list
+            const data = await fetchWorkers();
+            setWorkers(data);
+        } catch (err: unknown) {
+            if (isAxiosError(err) && err.response) {
+                alert(err.response.data?.message || 'خطا در حذف تعمیرکار');
+            } else {
+                alert('خطا در حذف تعمیرکار');
+            }
+        }
+    }, [workerToDelete]);
+
+    const handleDeleteCancelled = useCallback(() => {
+        setShowDeleteConfirm(false);
+        setWorkerToDelete(null);
     }, []);
 
     useEffect(() => {
@@ -162,7 +197,6 @@ const WorkersServices = () => {
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
-        // email is optional, so no required check
         if (addForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email))
             errors.email = 'ایمیل نامعتبر است.';
         if (!personalIdRegex.test(addForm.personalId))
@@ -200,7 +234,12 @@ const WorkersServices = () => {
     // ---------- DataTable columns ----------
     const columns: Column<WorkerListItem>[] = [
         { key: 'fullName', header: 'نام کامل' },
-        { key: 'phoneNumber', header: 'شماره موبایل', className: 'text-start', render: (value) => <span dir="ltr">{value as string}</span> },
+        {
+            key: 'phoneNumber',
+            header: 'شماره موبایل',
+            className: 'text-start',
+            render: (value) => <span dir="ltr">{value as string}</span>,
+        },
         {
             key: 'email',
             header: 'ایمیل',
@@ -236,6 +275,12 @@ const WorkersServices = () => {
             requiredRoles: ['admin'],
             className: 'btn-outline-primary',
         },
+        {
+            label: 'حذف',
+            onClick: requestDelete,          // opens the custom confirmation modal
+            requiredRoles: ['admin'],
+            className: 'btn-outline-danger',
+        },
     ];
 
     return (
@@ -258,8 +303,12 @@ const WorkersServices = () => {
                 emptyMessage="هیچ تعمیرکاری ثبت نشده است."
             />
 
-            {/* ===== EDIT MODAL ===== */}
-            <div className={`modal fade ${showEditModal ? 'show' : ''}`} style={{ display: showEditModal ? 'block' : 'none' }} tabIndex={-1}>
+            {/* ===== EDIT MODAL (unchanged) ===== */}
+            <div
+                className={`modal fade ${showEditModal ? 'show' : ''}`}
+                style={{ display: showEditModal ? 'block' : 'none' }}
+                tabIndex={-1}
+            >
                 <div className="modal-dialog">
                     <div className="modal-content" dir="rtl">
                         <div className="modal-header">
@@ -321,10 +370,20 @@ const WorkersServices = () => {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" onClick={closeEditModal} disabled={savingEdit}>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={closeEditModal}
+                                disabled={savingEdit}
+                            >
                                 انصراف
                             </button>
-                            <button type="button" className="btn btn-primary" onClick={handleEditSave} disabled={savingEdit}>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={handleEditSave}
+                                disabled={savingEdit}
+                            >
                                 {savingEdit ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
                             </button>
                         </div>
@@ -333,8 +392,13 @@ const WorkersServices = () => {
             </div>
             {showEditModal && <div className="modal-backdrop fade show" onClick={closeEditModal}></div>}
 
-            {/* ===== ADD WORKER MODAL ===== */}
-            <div className={`modal fade ${showAddModal ? 'show' : ''}`} style={{ display: showAddModal ? 'block' : 'none' }} tabIndex={-1}>
+            {/* ===== ADD WORKER MODAL (unchanged) ===== */}
+            {/* ... (same as your existing Add Modal code) ... */}
+            <div
+                className={`modal fade ${showAddModal ? 'show' : ''}`}
+                style={{ display: showAddModal ? 'block' : 'none' }}
+                tabIndex={-1}
+            >
                 <div className="modal-dialog">
                     <div className="modal-content" dir="rtl">
                         <div className="modal-header">
@@ -353,11 +417,14 @@ const WorkersServices = () => {
                                     value={addForm.fullName}
                                     onChange={(e) => {
                                         setAddForm({ ...addForm, fullName: e.target.value });
-                                        if (addFieldErrors.fullName) setAddFieldErrors(prev => ({ ...prev, fullName: undefined }));
+                                        if (addFieldErrors.fullName)
+                                            setAddFieldErrors((prev) => ({ ...prev, fullName: undefined }));
                                     }}
                                     required
                                 />
-                                {addFieldErrors.fullName && <div className="invalid-feedback">{addFieldErrors.fullName}</div>}
+                                {addFieldErrors.fullName && (
+                                    <div className="invalid-feedback">{addFieldErrors.fullName}</div>
+                                )}
                             </div>
 
                             {/* Phone */}
@@ -369,13 +436,16 @@ const WorkersServices = () => {
                                     value={addForm.phoneNumber}
                                     onChange={(e) => {
                                         setAddForm({ ...addForm, phoneNumber: e.target.value });
-                                        if (addFieldErrors.phoneNumber) setAddFieldErrors(prev => ({ ...prev, phoneNumber: undefined }));
+                                        if (addFieldErrors.phoneNumber)
+                                            setAddFieldErrors((prev) => ({ ...prev, phoneNumber: undefined }));
                                     }}
                                     dir="ltr"
                                     placeholder="09xxxxxxxxx"
                                     required
                                 />
-                                {addFieldErrors.phoneNumber && <div className="invalid-feedback">{addFieldErrors.phoneNumber}</div>}
+                                {addFieldErrors.phoneNumber && (
+                                    <div className="invalid-feedback">{addFieldErrors.phoneNumber}</div>
+                                )}
                             </div>
 
                             {/* Email (optional) */}
@@ -387,12 +457,15 @@ const WorkersServices = () => {
                                     value={addForm.email}
                                     onChange={(e) => {
                                         setAddForm({ ...addForm, email: e.target.value });
-                                        if (addFieldErrors.email) setAddFieldErrors(prev => ({ ...prev, email: undefined }));
+                                        if (addFieldErrors.email)
+                                            setAddFieldErrors((prev) => ({ ...prev, email: undefined }));
                                     }}
                                     dir="ltr"
                                     placeholder="اختیاری"
                                 />
-                                {addFieldErrors.email && <div className="invalid-feedback">{addFieldErrors.email}</div>}
+                                {addFieldErrors.email && (
+                                    <div className="invalid-feedback">{addFieldErrors.email}</div>
+                                )}
                             </div>
 
                             {/* Personal ID */}
@@ -404,13 +477,16 @@ const WorkersServices = () => {
                                     value={addForm.personalId}
                                     onChange={(e) => {
                                         setAddForm({ ...addForm, personalId: e.target.value });
-                                        if (addFieldErrors.personalId) setAddFieldErrors(prev => ({ ...prev, personalId: undefined }));
+                                        if (addFieldErrors.personalId)
+                                            setAddFieldErrors((prev) => ({ ...prev, personalId: undefined }));
                                     }}
                                     inputMode="numeric"
                                     maxLength={10}
                                     required
                                 />
-                                {addFieldErrors.personalId && <div className="invalid-feedback">{addFieldErrors.personalId}</div>}
+                                {addFieldErrors.personalId && (
+                                    <div className="invalid-feedback">{addFieldErrors.personalId}</div>
+                                )}
                                 <small className="form-text text-muted">باید دقیقاً ۱۰ رقم باشد</small>
                             </div>
 
@@ -423,12 +499,15 @@ const WorkersServices = () => {
                                     value={addForm.specialty}
                                     onChange={(e) => {
                                         setAddForm({ ...addForm, specialty: e.target.value });
-                                        if (addFieldErrors.specialty) setAddFieldErrors(prev => ({ ...prev, specialty: undefined }));
+                                        if (addFieldErrors.specialty)
+                                            setAddFieldErrors((prev) => ({ ...prev, specialty: undefined }));
                                     }}
                                     placeholder="مانند: سخت‌افزار، نرم‌افزار"
                                     required
                                 />
-                                {addFieldErrors.specialty && <div className="invalid-feedback">{addFieldErrors.specialty}</div>}
+                                {addFieldErrors.specialty && (
+                                    <div className="invalid-feedback">{addFieldErrors.specialty}</div>
+                                )}
                             </div>
 
                             {/* Password */}
@@ -440,20 +519,35 @@ const WorkersServices = () => {
                                     value={addForm.password}
                                     onChange={(e) => {
                                         setAddForm({ ...addForm, password: e.target.value });
-                                        if (addFieldErrors.password) setAddFieldErrors(prev => ({ ...prev, password: undefined }));
+                                        if (addFieldErrors.password)
+                                            setAddFieldErrors((prev) => ({ ...prev, password: undefined }));
                                     }}
                                     dir="ltr"
                                     required
                                 />
-                                {addFieldErrors.password && <div className="invalid-feedback">{addFieldErrors.password}</div>}
-                                <small className="form-text text-muted">حداقل ۶ کاراکتر، فقط حروف انگلیسی و اعداد</small>
+                                {addFieldErrors.password && (
+                                    <div className="invalid-feedback">{addFieldErrors.password}</div>
+                                )}
+                                <small className="form-text text-muted">
+                                    حداقل ۶ کاراکتر، فقط حروف انگلیسی و اعداد
+                                </small>
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" onClick={closeAddModal} disabled={savingAdd}>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={closeAddModal}
+                                disabled={savingAdd}
+                            >
                                 انصراف
                             </button>
-                            <button type="button" className="btn btn-primary" onClick={handleAddSave} disabled={savingAdd}>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={handleAddSave}
+                                disabled={savingAdd}
+                            >
                                 {savingAdd ? 'در حال ثبت...' : 'ثبت تعمیرکار'}
                             </button>
                         </div>
@@ -461,6 +555,23 @@ const WorkersServices = () => {
                 </div>
             </div>
             {showAddModal && <div className="modal-backdrop fade show" onClick={closeAddModal}></div>}
+
+            {/* ===== DELETE CONFIRMATION MODAL ===== */}
+            <ConfirmModal
+                show={showDeleteConfirm}
+                title="حذف تعمیرکار"
+                message={
+                    <span>
+            آیا از حذف تعمیرکار
+            <strong> {workerToDelete?.fullName} </strong>
+            مطمئن هستید؟ این عمل قابل بازگشت نیست.
+          </span>
+                }
+                confirmLabel="حذف"
+                cancelLabel="انصراف"
+                onConfirm={handleDeleteConfirmed}
+                onCancel={handleDeleteCancelled}
+            />
         </div>
     );
 };
