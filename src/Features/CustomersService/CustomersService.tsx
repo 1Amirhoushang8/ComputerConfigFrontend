@@ -30,6 +30,10 @@ const CustomersService = () => {
     // ---------- Search state ----------
     const [searchTerm, setSearchTerm] = useState('');
 
+    // ---------- Sorting state ----------
+    const [sortColumn, setSortColumn] = useState<string>('');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
     // ---------- Add customer modal ----------
     const [showAddModal, setShowAddModal] = useState(false);
     const [addForm, setAddForm] = useState<RegisterCustomerPayload>({
@@ -67,9 +71,9 @@ const CustomersService = () => {
     const [customerToDelete, setCustomerToDelete] = useState<CustomerListItem | null>(null);
 
     const canView = user?.role === 'admin' || user?.role === 'worker';
+    const isAdmin = user?.role === 'admin';
 
-
-    // ---------- Callbacks (before any early return) ----------
+    // ---------- Callbacks ----------
     const openEditModal = useCallback((customer: CustomerListItem) => {
         setSelectedCustomer(customer);
         setEditForm({
@@ -227,10 +231,40 @@ const CustomersService = () => {
         }
     };
 
-    // ---------- Filter customers based on search term ----------
+    // ---------- Sort handler ----------
+    const handleSort = (columnKey: string) => {
+        if (sortColumn === columnKey) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(columnKey);
+            setSortDirection('asc');
+        }
+    };
+
+    // ---------- Filter & sort customers ----------
     const filteredCustomers = customers.filter((c) =>
         c.fullName.toLowerCase().includes(searchTerm.trim().toLowerCase())
     );
+
+    const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+        if (!sortColumn) return 0;
+        const valA = a[sortColumn as keyof CustomerListItem];
+        const valB = b[sortColumn as keyof CustomerListItem];
+
+        if (valA == null || valB == null) return 0;
+
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return sortDirection === 'asc'
+                ? valA.localeCompare(valB, 'fa')
+                : valB.localeCompare(valA, 'fa');
+        }
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+
+        return 0;
+    });
 
     // ---------- DataTable columns ----------
     const columns: Column<CustomerListItem>[] = [
@@ -265,38 +299,47 @@ const CustomersService = () => {
                 </button>
             ),
         },
+        // New column: Requests (مشاهده)
+        {
+            key: 'totalTickets', // Reuse existing key; render ignores value
+            header: 'درخواست‌ها',
+            render: (_value, row) => (
+                <button
+                    className="btn btn-sm btn-outline-info"
+                    onClick={() => navigate(`/app/customer-requests/${row.id}`)}
+                >
+                    مشاهده
+                </button>
+            ),
+        },
     ];
 
-    const actions: Action<CustomerListItem>[] = [
-        {
-            label: 'ویرایش',
-            onClick: openEditModal,
-            requiredRoles: ['admin'],
-            className: 'btn-outline-primary',
-        },
-        {
-            label: 'حذف',
-            onClick: requestDelete,
-            requiredRoles: ['admin'],
-            className: 'btn-outline-danger',
-        },
-        {
-            label: 'مشاهده',
-            onClick: (row) => navigate(`/app/customer-requests/${row.id}`),
-            className: 'btn-outline-info',
-        },
-    ];
+    // Actions – only edit/delete for admin (requests moved to its own column)
+    const actions: Action<CustomerListItem>[] = isAdmin
+        ? [
+            {
+                label: 'ویرایش',
+                onClick: openEditModal,
+                requiredRoles: ['admin'],
+                className: 'btn-outline-primary',
+            },
+            {
+                label: 'حذف',
+                onClick: requestDelete,
+                requiredRoles: ['admin'],
+                className: 'btn-outline-danger',
+            },
+        ]
+        : [];
 
     return (
         <div className="container-fluid">
-            {/* ---------- Title ---------- */}
             <h2 className="mb-3">مدیریت مشتری‌ها</h2>
 
-            {/* ---------- Search bar + Add button ---------- */}
             <div className="d-flex align-items-center gap-2 mb-4">
                 <div className="input-group" style={{ maxWidth: '320px' }}>
           <span className="input-group-text bg-dark text-white border-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-search" viewBox="0 0 16 16">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
               <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
               <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
             </svg>
@@ -321,13 +364,15 @@ const CustomersService = () => {
                         </button>
                     )}
                 </div>
-                <button className="btn btn-nude ms-auto" onClick={openAddModal}>
-                    + افزودن مشتری
-                </button>
+                {isAdmin && (
+                    <button className="btn btn-nude ms-auto" onClick={openAddModal}>
+                        + افزودن مشتری
+                    </button>
+                )}
             </div>
 
             <DataTable
-                data={filteredCustomers}
+                data={sortedCustomers}
                 columns={columns}
                 keyExtractor={(c) => c.id}
                 actions={actions}
@@ -339,14 +384,13 @@ const CustomersService = () => {
                         ? 'هیچ مشتری‌ای با این نام یافت نشد.'
                         : 'هیچ مشتری‌ای ثبت نشده است.'
                 }
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
             />
 
-            {/* ===== ADD CUSTOMER MODAL ===== */}
-            <div
-                className={`modal fade ${showAddModal ? 'show' : ''}`}
-                style={{ display: showAddModal ? 'block' : 'none' }}
-                tabIndex={-1}
-            >
+            {/* Add Customer Modal */}
+            <div className={`modal fade ${showAddModal ? 'show' : ''}`} style={{ display: showAddModal ? 'block' : 'none' }} tabIndex={-1}>
                 <div className="modal-dialog">
                     <div className="modal-content" dir="rtl">
                         <div className="modal-header">
@@ -356,7 +400,6 @@ const CustomersService = () => {
                         <div className="modal-body">
                             {addError && <div className="alert alert-danger py-2">{addError}</div>}
 
-                            {/* Full Name */}
                             <div className="mb-3">
                                 <label className="form-label">نام کامل *</label>
                                 <input
@@ -372,7 +415,6 @@ const CustomersService = () => {
                                 {addFieldErrors.fullName && <div className="invalid-feedback">{addFieldErrors.fullName}</div>}
                             </div>
 
-                            {/* Phone */}
                             <div className="mb-3">
                                 <label className="form-label">شماره موبایل *</label>
                                 <input
@@ -390,7 +432,6 @@ const CustomersService = () => {
                                 {addFieldErrors.phoneNumber && <div className="invalid-feedback">{addFieldErrors.phoneNumber}</div>}
                             </div>
 
-                            {/* Email (optional) */}
                             <div className="mb-3">
                                 <label className="form-label">ایمیل</label>
                                 <input
@@ -407,7 +448,6 @@ const CustomersService = () => {
                                 {addFieldErrors.email && <div className="invalid-feedback">{addFieldErrors.email}</div>}
                             </div>
 
-                            {/* Personal ID */}
                             <div className="mb-3">
                                 <label className="form-label">کد ملی *</label>
                                 <input
@@ -426,7 +466,6 @@ const CustomersService = () => {
                                 <small className="form-text text-muted">باید دقیقاً ۱۰ رقم باشد</small>
                             </div>
 
-                            {/* Password */}
                             <div className="mb-3">
                                 <label className="form-label">رمز عبور *</label>
                                 <input
@@ -457,12 +496,8 @@ const CustomersService = () => {
             </div>
             {showAddModal && <div className="modal-backdrop fade show" onClick={closeAddModal}></div>}
 
-            {/* ===== EDIT MODAL ===== */}
-            <div
-                className={`modal fade ${showEditModal ? 'show' : ''}`}
-                style={{ display: showEditModal ? 'block' : 'none' }}
-                tabIndex={-1}
-            >
+            {/* Edit Modal */}
+            <div className={`modal fade ${showEditModal ? 'show' : ''}`} style={{ display: showEditModal ? 'block' : 'none' }} tabIndex={-1}>
                 <div className="modal-dialog">
                     <div className="modal-content" dir="rtl">
                         <div className="modal-header">
@@ -536,7 +571,7 @@ const CustomersService = () => {
             </div>
             {showEditModal && <div className="modal-backdrop fade show" onClick={closeEditModal}></div>}
 
-            {/* ===== DELETE CONFIRMATION MODAL ===== */}
+            {/* Delete Confirmation Modal */}
             <ConfirmModal
                 show={showDeleteConfirm}
                 title="حذف مشتری"

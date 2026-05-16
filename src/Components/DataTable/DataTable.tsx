@@ -1,6 +1,10 @@
 import { type ReactNode } from 'react';
 import './DataTable.scss';
-import type{DataTableProps} from "../../Models/DataTable.ts"
+import type {Column, DataTableProps} from "../../Models/DataTable.ts"
+
+
+
+
 
 
 const DataTable = <T,>({
@@ -12,9 +16,11 @@ const DataTable = <T,>({
                            loading = false,
                            error,
                            emptyMessage = 'داده‌ای یافت نشد',
+                           sortColumn,
+                           sortDirection,
+                           onSort,
                        }: DataTableProps<T>) => {
 
-    // Filter actions based on user role
     const visibleActions = actions.filter(
         (action) => !action.requiredRoles || (userRole && action.requiredRoles.includes(userRole))
     );
@@ -37,6 +43,17 @@ const DataTable = <T,>({
         return <div className="alert alert-info">{emptyMessage}</div>;
     }
 
+    const getSortIndicator = (columnKey: string) => {
+        if (!onSort || sortColumn !== columnKey) return null;
+        return sortDirection === 'asc' ? ' ▲' : ' ▼';
+    };
+
+    const handleHeaderClick = (column: Column<T>) => {
+        if (onSort && column.sortable !== false) {
+            onSort(String(column.key));
+        }
+    };
+
     return (
         <div className="table-responsive">
             <table className="table table-striped table-hover align-middle data-table">
@@ -44,8 +61,16 @@ const DataTable = <T,>({
                 <tr>
                     <th scope="col">#</th>
                     {columns.map((col) => (
-                        <th key={String(col.key)} scope="col" className={col.className}>
+                        <th
+                            key={String(col.key)}
+                            scope="col"
+                            className={`${col.className || ''} ${onSort && col.sortable !== false ? 'sortable-column' : ''}`}
+                            onClick={() => handleHeaderClick(col)}
+                            style={onSort && col.sortable !== false ? { cursor: 'pointer', userSelect: 'none' } : undefined}
+                            title={onSort && col.sortable !== false ? 'کلیک برای مرتب‌سازی' : undefined}
+                        >
                             {col.header}
+                            {getSortIndicator(String(col.key))}
                         </th>
                     ))}
                     {visibleActions.length > 0 && <th scope="col">عملیات</th>}

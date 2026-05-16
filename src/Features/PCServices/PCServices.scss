@@ -1,0 +1,78 @@
+/* ---- Wrapper for scoped styles ---- */
+.pcservices-page {
+
+  // Search row – increase specificity
+  .search-row {
+    .input-group {
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.05);
+      border-radius: 0.5rem;
+      overflow: hidden;
+
+      .input-group-text {
+        background-color: #2b1f1a !important; /* dark nude */
+        color: #fff;
+        border: none;
+      }
+
+      .form-control {
+        background-color: #f5ebe0; /* light nude */
+        border: none;
+        &:focus {
+          box-shadow: none;
+          border-color: #d4a373;
+        }
+      }
+
+      .btn-outline-light {
+        background-color: #d4a373 !important;
+        color: #fff !important;
+        border: none;
+        &:hover {
+          background-color: darken(#d4a373, 10%) !important;
+        }
+      }
+    }
+
+    .form-select {
+      border: 1px solid #ddd;
+      border-radius: 0.5rem;
+      &:focus {
+        border-color: #d4a373;
+        box-shadow: 0 0 0 0.2rem rgba(212, 163, 115, 0.25);
+      }
+    }
+  }
+
+  // Add modal width
+  .modal-dialog.modal-lg {
+    max-width: 800px;
+  }
+
+  // Status dropdown inside table cells
+  td {
+    select.form-select-sm {
+      font-size: 0.875rem;
+      padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+      border-color: #ccc;
+      border-radius: 0.4rem;
+      background-color: #fff;
+      &:focus {
+        border-color: #d4a373;
+        box-shadow: 0 0 0 0.2rem rgba(212, 163, 115, 0.2);
+      }
+    }
+  }
+
+  // System info modal definition list
+  .modal-body dl.row {
+    margin-bottom: 0;
+    dt {
+      font-weight: 600;
+      color: #4a3b32;
+    }
+    dd {
+      margin-bottom: 0.5rem;
+      color: #2b1f1a;
+    }
+  }
+}

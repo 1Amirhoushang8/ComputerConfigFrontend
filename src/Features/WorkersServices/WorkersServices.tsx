@@ -30,6 +30,10 @@ const WorkersServices = () => {
     // ---------- Search state ----------
     const [searchTerm, setSearchTerm] = useState('');
 
+    // ---------- Sorting state ----------
+    const [sortColumn, setSortColumn] = useState<string>('');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
     // ---------- Edit modal ----------
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedWorker, setSelectedWorker] = useState<WorkerListItem | null>(null);
@@ -214,8 +218,11 @@ const WorkersServices = () => {
 
     const handleAddSave = async () => {
         if (!validateAddForm()) return;
+
         setSavingAdd(true);
         setAddError('');
+        setAddFieldErrors({});
+
         try {
             await registerWorker(addForm);
             closeAddModal();
@@ -223,20 +230,90 @@ const WorkersServices = () => {
             setWorkers(data);
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
-                const msg = err.response.data?.message || err.response.data;
-                setAddError(typeof msg === 'string' ? msg : 'خطا در ثبت نام');
+                const { status, data } = err.response;
+
+                // Backend validation errors (400)
+                if (status === 400) {
+                    if (data.errors && typeof data.errors === 'object') {
+                        // Map backend field names to our state keys
+                        const fieldMap: Record<string, keyof typeof addFieldErrors> = {
+                            FullName: 'fullName',
+                            fullName: 'fullName',
+                            PhoneNumber: 'phoneNumber',
+                            phoneNumber: 'phoneNumber',
+                            Email: 'email',
+                            email: 'email',
+                            PersonalId: 'personalId',
+                            personalId: 'personalId',
+                            Password: 'password',
+                            password: 'password',
+                            Specialty: 'specialty',
+                            specialty: 'specialty',
+                        };
+
+                        const backendErrors: typeof addFieldErrors = {};
+                        for (const [key, messages] of Object.entries(data.errors)) {
+                            const mappedKey = fieldMap[key] ?? key;
+                            backendErrors[mappedKey as keyof typeof addFieldErrors] = Array.isArray(messages)
+                                ? messages[0]
+                                : String(messages);
+                        }
+                        setAddFieldErrors(backendErrors);
+                    } else if (typeof data === 'string') {
+                        setAddError(data);
+                    } else if (data.message) {
+                        setAddError(data.message);
+                    } else {
+                        setAddError('اطلاعات وارد شده معتبر نیست.');
+                    }
+                } else if (status === 401) {
+                    setAddError('شما اجازه ثبت نام ندارید. لطفاً دوباره وارد شوید.');
+                } else {
+                    const msg = data?.message || data?.title || 'خطا در ثبت نام';
+                    setAddError(typeof msg === 'string' ? msg : 'خطا در ثبت نام');
+                }
             } else {
-                setAddError('خطا در ثبت نام');
+                setAddError('خطا در برقراری ارتباط با سرور.');
             }
         } finally {
             setSavingAdd(false);
         }
     };
 
-    // ---------- Filter workers based on search term ----------
+    // ---------- Sort handler ----------
+    const handleSort = (columnKey: string) => {
+        if (sortColumn === columnKey) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(columnKey);
+            setSortDirection('asc');
+        }
+    };
+
+    // ---------- Filter & sort workers ----------
     const filteredWorkers = workers.filter((w) =>
         w.fullName.toLowerCase().includes(searchTerm.trim().toLowerCase())
     );
+
+    const sortedWorkers = [...filteredWorkers].sort((a, b) => {
+        if (!sortColumn) return 0;
+        const valA = a[sortColumn as keyof WorkerListItem];
+        const valB = b[sortColumn as keyof WorkerListItem];
+
+        if (valA == null || valB == null) return 0;
+
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return sortDirection === 'asc'
+                ? valA.localeCompare(valB, 'fa')
+                : valB.localeCompare(valA, 'fa');
+        }
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+
+        return 0;
+    });
 
     // ---------- DataTable columns ----------
     const columns: Column<WorkerListItem>[] = [
@@ -330,7 +407,7 @@ const WorkersServices = () => {
             </div>
 
             <DataTable
-                data={filteredWorkers}
+                data={sortedWorkers}
                 columns={columns}
                 keyExtractor={(w) => w.id}
                 actions={actions}
@@ -342,6 +419,9 @@ const WorkersServices = () => {
                         ? 'هیچ تعمیرکاری با این نام یافت نشد.'
                         : 'هیچ تعمیرکاری ثبت نشده است.'
                 }
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
             />
 
             {/* ===== EDIT MODAL ===== */}
