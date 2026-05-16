@@ -9,7 +9,7 @@ import {
 } from '../../API/customersApi';
 import type { UpdateCustomerPayload } from '../../Models/UpdateCustomerPayload';
 import type { CustomerListItem } from '../../Models/CustomerListItem';
-import type { RegisterCustomerPayload } from '../../Models/RegisterCustomerPayload';  // adjust path if needed
+import type { RegisterCustomerPayload } from '../../Models/RegisterCustomerPayload';
 import type { Column, Action } from '../../Models/DataTable';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../Components/DataTable/DataTable';
@@ -26,6 +26,9 @@ const CustomersService = () => {
     const [customers, setCustomers] = useState<CustomerListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // ---------- Search state ----------
+    const [searchTerm, setSearchTerm] = useState('');
 
     // ---------- Add customer modal ----------
     const [showAddModal, setShowAddModal] = useState(false);
@@ -64,7 +67,7 @@ const CustomersService = () => {
     const [customerToDelete, setCustomerToDelete] = useState<CustomerListItem | null>(null);
 
     const canView = user?.role === 'admin' || user?.role === 'worker';
-    // const isAdmin = user?.role === 'admin';
+
 
     // ---------- Callbacks (before any early return) ----------
     const openEditModal = useCallback((customer: CustomerListItem) => {
@@ -163,7 +166,6 @@ const CustomersService = () => {
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
-        // email is optional
         if (addForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email))
             errors.email = 'ایمیل نامعتبر است.';
         if (!personalIdRegex.test(addForm.personalId))
@@ -225,6 +227,11 @@ const CustomersService = () => {
         }
     };
 
+    // ---------- Filter customers based on search term ----------
+    const filteredCustomers = customers.filter((c) =>
+        c.fullName.toLowerCase().includes(searchTerm.trim().toLowerCase())
+    );
+
     // ---------- DataTable columns ----------
     const columns: Column<CustomerListItem>[] = [
         { key: 'fullName', header: 'نام کامل' },
@@ -282,22 +289,56 @@ const CustomersService = () => {
 
     return (
         <div className="container-fluid">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2>مدیریت مشتری‌ها</h2>
-                <button className="btn btn-nude" onClick={openAddModal}>
+            {/* ---------- Title ---------- */}
+            <h2 className="mb-3">مدیریت مشتری‌ها</h2>
+
+            {/* ---------- Search bar + Add button ---------- */}
+            <div className="d-flex align-items-center gap-2 mb-4">
+                <div className="input-group" style={{ maxWidth: '320px' }}>
+          <span className="input-group-text bg-dark text-white border-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-search" viewBox="0 0 16 16">
+              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
+              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
+            </svg>
+          </span>
+                    <input
+                        type="text"
+                        className="form-control border-0 shadow-sm"
+                        placeholder="جستجو بر اساس نام..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        dir="rtl"
+                        style={{ backgroundColor: '#f5ebe0' }}
+                    />
+                    {searchTerm && (
+                        <button
+                            className="btn btn-outline-light border-0"
+                            onClick={() => setSearchTerm('')}
+                            type="button"
+                            style={{ backgroundColor: '#d4a373', color: '#fff' }}
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
+                <button className="btn btn-nude ms-auto" onClick={openAddModal}>
                     + افزودن مشتری
                 </button>
             </div>
 
             <DataTable
-                data={customers}
+                data={filteredCustomers}
                 columns={columns}
                 keyExtractor={(c) => c.id}
                 actions={actions}
                 userRole={user?.role}
                 loading={loading}
                 error={error}
-                emptyMessage="هیچ مشتری‌ای ثبت نشده است."
+                emptyMessage={
+                    searchTerm
+                        ? 'هیچ مشتری‌ای با این نام یافت نشد.'
+                        : 'هیچ مشتری‌ای ثبت نشده است.'
+                }
             />
 
             {/* ===== ADD CUSTOMER MODAL ===== */}

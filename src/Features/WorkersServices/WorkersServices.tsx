@@ -12,9 +12,9 @@ import {
 } from '../../API/workersApi';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../Components/DataTable/DataTable';
+import type { Column, Action } from '../../Models/DataTable';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
 import "./WorkersServices.scss";
-import type {Column, Action} from "../../Models/DataTable.ts"
 
 const phoneRegex = /^09\d{9}$/;
 const passwordRegex = /^[a-zA-Z0-9]+$/;
@@ -26,6 +26,9 @@ const WorkersServices = () => {
     const [workers, setWorkers] = useState<WorkerListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // ---------- Search state ----------
+    const [searchTerm, setSearchTerm] = useState('');
 
     // ---------- Edit modal ----------
     const [showEditModal, setShowEditModal] = useState(false);
@@ -68,7 +71,7 @@ const WorkersServices = () => {
 
     const isAdmin = user?.role === 'admin';
 
-    // ---------- Callbacks (must be before any early return) ----------
+    // ---------- Callbacks (before early return) ----------
     const openEditModal = useCallback((worker: WorkerListItem) => {
         setSelectedWorker(worker);
         setEditForm({
@@ -93,7 +96,6 @@ const WorkersServices = () => {
             await deleteWorker(workerToDelete.id);
             setShowDeleteConfirm(false);
             setWorkerToDelete(null);
-            // Refresh list
             const data = await fetchWorkers();
             setWorkers(data);
         } catch (err: unknown) {
@@ -231,6 +233,11 @@ const WorkersServices = () => {
         }
     };
 
+    // ---------- Filter workers based on search term ----------
+    const filteredWorkers = workers.filter((w) =>
+        w.fullName.toLowerCase().includes(searchTerm.trim().toLowerCase())
+    );
+
     // ---------- DataTable columns ----------
     const columns: Column<WorkerListItem>[] = [
         { key: 'fullName', header: 'نام کامل' },
@@ -277,7 +284,7 @@ const WorkersServices = () => {
         },
         {
             label: 'حذف',
-            onClick: requestDelete,          // opens the custom confirmation modal
+            onClick: requestDelete,
             requiredRoles: ['admin'],
             className: 'btn-outline-danger',
         },
@@ -285,25 +292,59 @@ const WorkersServices = () => {
 
     return (
         <div className="container-fluid">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2>مدیریت تعمیرکاران</h2>
-                <button className="btn btn-nude" onClick={openAddModal}>
+            {/* ---------- Title ---------- */}
+            <h2 className="mb-3">مدیریت تعمیرکاران</h2>
+
+            {/* ---------- Search bar + Add button ---------- */}
+            <div className="d-flex align-items-center gap-2 mb-4">
+                <div className="input-group" style={{ maxWidth: '320px' }}>
+          <span className="input-group-text bg-dark text-white border-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-search" viewBox="0 0 16 16">
+              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
+              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
+            </svg>
+          </span>
+                    <input
+                        type="text"
+                        className="form-control border-0 shadow-sm"
+                        placeholder="جستجو بر اساس نام..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        dir="rtl"
+                        style={{ backgroundColor: '#f5ebe0' }}
+                    />
+                    {searchTerm && (
+                        <button
+                            className="btn btn-outline-light border-0"
+                            onClick={() => setSearchTerm('')}
+                            type="button"
+                            style={{ backgroundColor: '#d4a373', color: '#fff' }}
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
+                <button className="btn btn-nude ms-auto" onClick={openAddModal}>
                     + افزودن تعمیرکار
                 </button>
             </div>
 
             <DataTable
-                data={workers}
+                data={filteredWorkers}
                 columns={columns}
                 keyExtractor={(w) => w.id}
                 actions={actions}
                 userRole={user?.role}
                 loading={loading}
                 error={error}
-                emptyMessage="هیچ تعمیرکاری ثبت نشده است."
+                emptyMessage={
+                    searchTerm
+                        ? 'هیچ تعمیرکاری با این نام یافت نشد.'
+                        : 'هیچ تعمیرکاری ثبت نشده است.'
+                }
             />
 
-            {/* ===== EDIT MODAL (unchanged) ===== */}
+            {/* ===== EDIT MODAL ===== */}
             <div
                 className={`modal fade ${showEditModal ? 'show' : ''}`}
                 style={{ display: showEditModal ? 'block' : 'none' }}
@@ -392,8 +433,7 @@ const WorkersServices = () => {
             </div>
             {showEditModal && <div className="modal-backdrop fade show" onClick={closeEditModal}></div>}
 
-            {/* ===== ADD WORKER MODAL (unchanged) ===== */}
-            {/* ... (same as your existing Add Modal code) ... */}
+            {/* ===== ADD WORKER MODAL ===== */}
             <div
                 className={`modal fade ${showAddModal ? 'show' : ''}`}
                 style={{ display: showAddModal ? 'block' : 'none' }}
