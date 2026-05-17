@@ -6,18 +6,17 @@ import {
     updateWorker,
     registerWorker,
     deleteWorker,
-    type WorkerListItem,
-    type UpdateWorkerPayload,
-    type RegisterWorkerPayload,
 } from '../../API/workersApi';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../Components/DataTable/DataTable';
 import type { Column, Action } from '../../Models/DataTable';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
 import "./WorkersServices.scss";
+import type {WorkerListItem} from "../../Models/WorkerListItem.ts";
+import type {UpdateWorkerPayload} from "../../Models/UpdateWorkerPayload.ts";
+import type {RegisterWorkerPayload} from "../../Models/RegisterWorkerPayload.ts";
 
 const phoneRegex = /^09\d{9}$/;
-const passwordRegex = /^[a-zA-Z0-9]+$/;
 const personalIdRegex = /^\d{10}$/;
 
 const WorkersServices = () => {
@@ -54,7 +53,6 @@ const WorkersServices = () => {
         phoneNumber: '',
         email: '',
         personalId: '',
-        password: '',
         role: 'worker',
         specialty: '',
     });
@@ -65,7 +63,6 @@ const WorkersServices = () => {
         phoneNumber?: string;
         email?: string;
         personalId?: string;
-        password?: string;
         specialty?: string;
     }>({});
 
@@ -152,7 +149,12 @@ const WorkersServices = () => {
         setSavingEdit(true);
         setEditError('');
         try {
-            await updateWorker(selectedWorker.id, editForm);
+            // Send "ندارد" if email is empty
+            const payload = {
+                ...editForm,
+                email: editForm.email.trim() || 'ندارد',
+            };
+            await updateWorker(selectedWorker.id, payload);
             closeEditModal();
             const data = await fetchWorkers();
             setWorkers(data);
@@ -175,7 +177,6 @@ const WorkersServices = () => {
             phoneNumber: '',
             email: '',
             personalId: '',
-            password: '',
             role: 'worker',
             specialty: '',
         });
@@ -191,26 +192,18 @@ const WorkersServices = () => {
     };
 
     const validateAddForm = (): boolean => {
-        const errors: {
-            fullName?: string;
-            phoneNumber?: string;
-            email?: string;
-            personalId?: string;
-            password?: string;
-            specialty?: string;
-        } = {};
+        const errors: typeof addFieldErrors = {};
 
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
-        if (addForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email))
+        // Only validate email format if it's non‑empty after trimming
+        const emailTrimmed = addForm.email.trim();
+        if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed))
             errors.email = 'ایمیل نامعتبر است.';
         if (!personalIdRegex.test(addForm.personalId))
             errors.personalId = 'کد ملی باید دقیقاً ۱۰ رقم باشد.';
         if (!addForm.specialty.trim()) errors.specialty = 'تخصص الزامی است.';
-        if (addForm.password.length < 6) errors.password = 'رمز عبور باید حداقل ۶ کاراکتر باشد.';
-        else if (!passwordRegex.test(addForm.password))
-            errors.password = 'رمز عبور فقط می‌تواند شامل حروف انگلیسی و اعداد باشد.';
 
         setAddFieldErrors(errors);
         return Object.keys(errors).length === 0;
@@ -224,7 +217,12 @@ const WorkersServices = () => {
         setAddFieldErrors({});
 
         try {
-            await registerWorker(addForm);
+            // Send "ندارد" if email is empty
+            const payload = {
+                ...addForm,
+                email: addForm.email.trim() || 'ندارد',
+            };
+            await registerWorker(payload);
             closeAddModal();
             const data = await fetchWorkers();
             setWorkers(data);
@@ -235,7 +233,6 @@ const WorkersServices = () => {
                 // Backend validation errors (400)
                 if (status === 400) {
                     if (data.errors && typeof data.errors === 'object') {
-                        // Map backend field names to our state keys
                         const fieldMap: Record<string, keyof typeof addFieldErrors> = {
                             FullName: 'fullName',
                             fullName: 'fullName',
@@ -245,8 +242,6 @@ const WorkersServices = () => {
                             email: 'email',
                             PersonalId: 'personalId',
                             personalId: 'personalId',
-                            Password: 'password',
-                            password: 'password',
                             Specialty: 'specialty',
                             specialty: 'specialty',
                         };
@@ -513,7 +508,7 @@ const WorkersServices = () => {
             </div>
             {showEditModal && <div className="modal-backdrop fade show" onClick={closeEditModal}></div>}
 
-            {/* ===== ADD WORKER MODAL ===== */}
+            {/* ===== ADD WORKER MODAL (without password) ===== */}
             <div
                 className={`modal fade ${showAddModal ? 'show' : ''}`}
                 style={{ display: showAddModal ? 'block' : 'none' }}
@@ -628,29 +623,6 @@ const WorkersServices = () => {
                                 {addFieldErrors.specialty && (
                                     <div className="invalid-feedback">{addFieldErrors.specialty}</div>
                                 )}
-                            </div>
-
-                            {/* Password */}
-                            <div className="mb-3">
-                                <label className="form-label">رمز عبور *</label>
-                                <input
-                                    type="password"
-                                    className={`form-control ${addFieldErrors.password ? 'is-invalid' : ''}`}
-                                    value={addForm.password}
-                                    onChange={(e) => {
-                                        setAddForm({ ...addForm, password: e.target.value });
-                                        if (addFieldErrors.password)
-                                            setAddFieldErrors((prev) => ({ ...prev, password: undefined }));
-                                    }}
-                                    dir="ltr"
-                                    required
-                                />
-                                {addFieldErrors.password && (
-                                    <div className="invalid-feedback">{addFieldErrors.password}</div>
-                                )}
-                                <small className="form-text text-muted">
-                                    حداقل ۶ کاراکتر، فقط حروف انگلیسی و اعداد
-                                </small>
                             </div>
                         </div>
                         <div className="modal-footer">

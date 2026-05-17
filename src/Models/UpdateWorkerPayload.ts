@@ -1,8 +1,7 @@
-export interface RegisterCustomerPayload {
+export interface UpdateWorkerPayload {
     fullName: string;
     phoneNumber: string;
     email: string;
     personalId: string;
-
-    role: string;
+    specialty: string;
 }

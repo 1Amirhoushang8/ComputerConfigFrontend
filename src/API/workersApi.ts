@@ -1,34 +1,13 @@
 import api from './axiosInstance';
+import type {WorkerListItem} from "../Models/WorkerListItem.ts";
+import type {UpdateWorkerPayload} from "../Models/UpdateWorkerPayload.ts";
+import type {RegisterWorkerPayload} from "../Models/RegisterWorkerPayload.ts";
 
-export interface WorkerListItem {
-    id: number;
-    fullName: string;
-    phoneNumber: string;
-    personalId: string;
-    email: string;
-    specialty: string;
-    activeTicketCount: number;
-    currentStatus: string;
-}
 
-export interface UpdateWorkerPayload {
-    fullName: string;
-    phoneNumber: string;
-    email: string;
-    personalId: string;
-    specialty: string;
-}
 
-export interface RegisterWorkerPayload {
-    fullName: string;
-    phoneNumber: string;
-    email: string;
-    personalId: string;
 
-    password: string;
-    role: string;
-    specialty: string;
-}
+
+
 
 export const fetchWorkers = async (): Promise<WorkerListItem[]> => {
     const response = await api.get<WorkerListItem[]>('/workers');
@@ -41,10 +20,10 @@ export const updateWorker = async (id: number, data: UpdateWorkerPayload) => {
 };
 
 export const registerWorker = async (data: RegisterWorkerPayload) => {
-    const response = await api.post('/auth/register', data);
+    // Backend will generate a random password if none sent
+    const response = await api.post('/auth/register', { ...data, password: '' });
     return response.data;
 };
-
 
 export const deleteWorker = async (id: number) => {
     const response = await api.delete(`/workers/${id}`);

@@ -16,7 +16,6 @@ import DataTable from '../../Components/DataTable/DataTable';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
 
 const phoneRegex = /^09\d{9}$/;
-const passwordRegex = /^[a-zA-Z0-9]+$/;
 const personalIdRegex = /^\d{10}$/;
 
 const CustomersService = () => {
@@ -41,7 +40,6 @@ const CustomersService = () => {
         phoneNumber: '',
         email: '',
         personalId: '',
-        password: '',
         role: 'customer',
     });
     const [savingAdd, setSavingAdd] = useState(false);
@@ -51,7 +49,6 @@ const CustomersService = () => {
         phoneNumber?: string;
         email?: string;
         personalId?: string;
-        password?: string;
     }>({});
 
     // ---------- Edit modal ----------
@@ -144,7 +141,6 @@ const CustomersService = () => {
             phoneNumber: '',
             email: '',
             personalId: '',
-            password: '',
             role: 'customer',
         });
         setAddFieldErrors({});
@@ -164,19 +160,17 @@ const CustomersService = () => {
             phoneNumber?: string;
             email?: string;
             personalId?: string;
-            password?: string;
         } = {};
 
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
-        if (addForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email))
+        // Only validate email format if it's non‑empty after trimming
+        const emailTrimmed = addForm.email.trim();
+        if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed))
             errors.email = 'ایمیل نامعتبر است.';
         if (!personalIdRegex.test(addForm.personalId))
             errors.personalId = 'کد ملی باید دقیقاً ۱۰ رقم باشد.';
-        if (addForm.password.length < 6) errors.password = 'رمز عبور باید حداقل ۶ کاراکتر باشد.';
-        else if (!passwordRegex.test(addForm.password))
-            errors.password = 'رمز عبور فقط می‌تواند شامل حروف انگلیسی و اعداد باشد.';
 
         setAddFieldErrors(errors);
         return Object.keys(errors).length === 0;
@@ -187,7 +181,12 @@ const CustomersService = () => {
         setSavingAdd(true);
         setAddError('');
         try {
-            await registerCustomer(addForm);
+            // Send "ندارد" if email is empty
+            const payload = {
+                ...addForm,
+                email: addForm.email.trim() || 'ندارد',
+            };
+            await registerCustomer(payload);
             closeAddModal();
             const data = await fetchCustomers();
             setCustomers(data);
@@ -215,7 +214,12 @@ const CustomersService = () => {
         setSavingEdit(true);
         setEditError('');
         try {
-            await updateCustomer(selectedCustomer.id, editForm);
+            // Send "ندارد" if email is empty
+            const payload = {
+                ...editForm,
+                email: editForm.email.trim() || 'ندارد',
+            };
+            await updateCustomer(selectedCustomer.id, payload);
             closeEditModal();
             const data = await fetchCustomers();
             setCustomers(data);
@@ -389,7 +393,7 @@ const CustomersService = () => {
                 onSort={handleSort}
             />
 
-            {/* Add Customer Modal */}
+            {/* Add Customer Modal – no password field */}
             <div className={`modal fade ${showAddModal ? 'show' : ''}`} style={{ display: showAddModal ? 'block' : 'none' }} tabIndex={-1}>
                 <div className="modal-dialog">
                     <div className="modal-content" dir="rtl">
@@ -464,23 +468,6 @@ const CustomersService = () => {
                                 />
                                 {addFieldErrors.personalId && <div className="invalid-feedback">{addFieldErrors.personalId}</div>}
                                 <small className="form-text text-muted">باید دقیقاً ۱۰ رقم باشد</small>
-                            </div>
-
-                            <div className="mb-3">
-                                <label className="form-label">رمز عبور *</label>
-                                <input
-                                    type="password"
-                                    className={`form-control ${addFieldErrors.password ? 'is-invalid' : ''}`}
-                                    value={addForm.password}
-                                    onChange={(e) => {
-                                        setAddForm({ ...addForm, password: e.target.value });
-                                        if (addFieldErrors.password) setAddFieldErrors((prev) => ({ ...prev, password: undefined }));
-                                    }}
-                                    dir="ltr"
-                                    required
-                                />
-                                {addFieldErrors.password && <div className="invalid-feedback">{addFieldErrors.password}</div>}
-                                <small className="form-text text-muted">حداقل ۶ کاراکتر، فقط حروف انگلیسی و اعداد</small>
                             </div>
                         </div>
                         <div className="modal-footer">

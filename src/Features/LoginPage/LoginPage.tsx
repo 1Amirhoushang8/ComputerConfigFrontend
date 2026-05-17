@@ -1,80 +1,119 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
-import { loginUser } from '../../API/authApi';
 import { useAuth } from '../../hooks/useAuth';
+import api from '../../API/axiosInstance';
 
 const phoneRegex = /^09\d{9}$/;
-const passwordRegex = /^[a-zA-Z0-9]+$/;
 
 const LoginPage = () => {
-    const [phone, setPhone] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [fieldErrors, setFieldErrors] = useState<{ phone?: string; password?: string }>({});
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    const validateForm = (): boolean => {
-        const errors: { phone?: string; password?: string } = {};
+    const [phone, setPhone] = useState('');
+    const [phoneError, setPhoneError] = useState('');
+    const [sending, setSending] = useState(false);
 
+    const [code, setCode] = useState('');
+    const [codeError, setCodeError] = useState('');
+    const [codeSent, setCodeSent] = useState(false);    // true after OTP successfully sent
+    const [verifying, setVerifying] = useState(false);
+
+    const [error, setError] = useState('');
+    const [cooldown, setCooldown] = useState(0);        // seconds remaining
+
+    // Countdown effect
+    useEffect(() => {
+        if (cooldown <= 0) return;
+        const timer = setInterval(() => {
+            setCooldown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [cooldown]);
+
+    // Send OTP
+    const handleSendOtp = async () => {
+        setError('');
+        setPhoneError('');
         if (!phoneRegex.test(phone)) {
-            errors.phone = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود (مثال: ۰۹۱۲۳۴۵۶۷۸۹)';
+            setPhoneError('شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.');
+            return;
         }
-
-        if (password.length < 6) {
-            errors.password = 'رمز عبور باید حداقل ۶ کاراکتر باشد.';
-        } else if (!passwordRegex.test(password)) {
-            errors.password = 'رمز عبور فقط می‌تواند شامل حروف انگلیسی و اعداد باشد.';
+        setSending(true);
+        try {
+            await api.post('/auth/send-otp', { phoneNumber: phone });
+            setCodeSent(true);
+            setCooldown(180);   // 3 minutes
+        } catch (err: unknown) {
+            if (isAxiosError(err)) {
+                const data = err.response?.data;
+                if (err.response?.status === 400 && data?.remainingSeconds) {
+                    setCooldown(data.remainingSeconds);
+                    setError(`لطفاً ${data.remainingSeconds} ثانیه دیگر صبر کنید.`);
+                } else if (err.response?.status === 404) {
+                    setError('کاربری با این شماره یافت نشد.');
+                } else if (err.response?.status === 503) {
+                    setError('تعداد درخواست‌ها بیش از حد مجاز است. لطفاً صبر کنید.');
+                } else {
+                    setError('خطا در ارسال کد. دوباره تلاش کنید.');
+                }
+            } else {
+                setError('خطا در برقراری ارتباط با سرور.');
+            }
+        } finally {
+            setSending(false);
         }
-
-        setFieldErrors(errors);
-        return Object.keys(errors).length === 0;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    // Verify OTP
+    const handleVerifyOtp = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!validateForm()) return;
-
-        setLoading(true);
+        setCodeError('');
+        if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+            setCodeError('کد باید ۶ رقم باشد.');
+            return;
+        }
+        setVerifying(true);
         try {
-            const data = await loginUser({ phoneNumber: phone, password });
-            login(data.fullName, data.role);
-
-            if (data.role === 'customer') {
+            const response = await api.post('/auth/verify-otp', {
+                phoneNumber: phone,
+                code: code,
+            });
+            const { fullName, role } = response.data;
+            login(fullName, role);
+            if (role === 'customer') {
                 navigate('/customer-dashboard', { replace: true });
             } else {
                 navigate('/app/PCServices', { replace: true });
             }
         } catch (err: unknown) {
             if (isAxiosError(err)) {
-                if (err.response?.status === 503) {
-                    setError('تعداد تلاش‌های شما بیش از حد مجاز است. لطفاً یک دقیقه صبر کنید.');
-                } else if (err.response?.status === 400) {
-
-                    const data = err.response.data;
-                    if (data?.errors) {
-
-                        const messages = Object.values(data.errors).flat().join(' ');
-                        setError(messages);
-                    } else {
-                        setError('اطلاعات وارد شده معتبر نیست.');
-                    }
+                if (err.response?.status === 401) {
+                    setCodeError('کد نامعتبر یا منقضی شده است.');
+                } else if (err.response?.status === 503) {
+                    setError('تعداد تلاش‌ها بیش از حد مجاز است. لطفاً صبر کنید.');
                 } else {
-                    setError(
-                        typeof err.response?.data === 'string'
-                            ? err.response.data
-                            : 'خطا در ورود'
-                    );
+                    setError('خطا در تأیید کد. دوباره تلاش کنید.');
                 }
             } else {
-                setError('خطا در برقراری ارتباط با سرور');
+                setError('خطا در برقراری ارتباط با سرور.');
             }
         } finally {
-            setLoading(false);
+            setVerifying(false);
         }
+    };
+
+    const formatCooldown = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
     return (
@@ -82,47 +121,98 @@ const LoginPage = () => {
             className="d-flex justify-content-center align-items-center"
             style={{ minHeight: '100vh', background: '#f4f6f9' }}
         >
-            <div className="card shadow-lg p-4" style={{ width: '400px', borderRadius: '16px' }}>
+            <div className="card shadow-lg p-4" style={{ width: '420px', borderRadius: '16px' }}>
                 <h3 className="text-center mb-4">ورود به سیستم</h3>
-                <form onSubmit={handleSubmit} noValidate>
-                    {/* Phone field */}
+
+                {error && <div className="alert alert-danger py-2">{error}</div>}
+
+                <form onSubmit={handleVerifyOtp}>
+                    {/* Phone number field */}
                     <div className="mb-3">
                         <label className="form-label">شماره موبایل</label>
                         <input
                             type="text"
-                            className={`form-control ${fieldErrors.phone ? 'is-invalid' : ''}`}
+                            className={`form-control ${phoneError ? 'is-invalid' : ''}`}
                             value={phone}
                             onChange={(e) => {
                                 setPhone(e.target.value);
-                                if (fieldErrors.phone) setFieldErrors(prev => ({ ...prev, phone: undefined }));
+                                setPhoneError('');
+                                if (codeSent) {
+                                    setCodeSent(false);
+                                    setCooldown(0);
+                                }
                             }}
-                            required
                             placeholder="09xxxxxxxxx"
                             dir="ltr"
+                            disabled={verifying}
                         />
-                        {fieldErrors.phone && <div className="invalid-feedback">{fieldErrors.phone}</div>}
+                        {phoneError && <div className="invalid-feedback">{phoneError}</div>}
                     </div>
 
-                    {/* Password field */}
+                    {/* Verification code field + send text / timer */}
                     <div className="mb-3">
-                        <label className="form-label">رمز عبور</label>
-                        <input
-                            type="password"
-                            className={`form-control ${fieldErrors.password ? 'is-invalid' : ''}`}
-                            value={password}
-                            onChange={(e) => {
-                                setPassword(e.target.value);
-                                if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: undefined }));
-                            }}
-                            required
-                            dir="ltr"
-                        />
-                        {fieldErrors.password && <div className="invalid-feedback">{fieldErrors.password}</div>}
+                        <label className="form-label">کد تأیید</label>
+                        <div className="input-group">
+                            <input
+                                type="text"
+                                className={`form-control ${codeError ? 'is-invalid' : ''}`}
+                                value={code}
+                                onChange={(e) => {
+                                    setCode(e.target.value);
+                                    setCodeError('');
+                                }}
+                                placeholder="کد ۶ رقمی"
+                                dir="ltr"
+                                maxLength={6}
+                                disabled={verifying}   // only disabled while verifying
+                            />
+                            {/* Send code text / countdown */}
+                            {codeSent ? (
+                                cooldown > 0 ? (
+                                    <span
+                                        className="input-group-text bg-warning text-dark fw-bold"
+                                        style={{ minWidth: '70px', justifyContent: 'center' }}
+                                    >
+                    {formatCooldown(cooldown)}
+                  </span>
+                                ) : (
+                                    <span
+                                        className="input-group-text bg-light text-primary"
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        onClick={handleSendOtp}
+                                        role="button"
+                                    >
+                    ارسال مجدد
+                  </span>
+                                )
+                            ) : (
+                                <span
+                                    className={`input-group-text ${
+                                        sending || cooldown > 0
+                                            ? 'bg-light text-muted'
+                                            : 'bg-light text-primary'
+                                    }`}
+                                    style={{
+                                        cursor: sending || cooldown > 0 ? 'default' : 'pointer',
+                                        userSelect: 'none',
+                                    }}
+                                    onClick={sending || cooldown > 0 ? undefined : handleSendOtp}
+                                    role="button"
+                                >
+                  {sending ? '...' : cooldown > 0 ? formatCooldown(cooldown) : 'ارسال کد تأیید'}
+                </span>
+                            )}
+                        </div>
+                        {codeError && <div className="invalid-feedback d-block">{codeError}</div>}
                     </div>
 
-                    {error && <div className="alert alert-danger py-2">{error}</div>}
-                    <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-                        {loading ? 'در حال ورود...' : 'ورود'}
+                    {/* Login button – always available except during verifying */}
+                    <button
+                        type="submit"
+                        className="btn btn-success w-100 mt-3"
+                        disabled={verifying}
+                    >
+                        {verifying ? 'در حال ورود...' : 'ورود'}
                     </button>
                 </form>
             </div>
