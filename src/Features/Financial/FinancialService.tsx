@@ -15,6 +15,8 @@ import { fetchTickets } from '../../API/ticketsApi';
 import { isAxiosError } from 'axios';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
 
+const typeOptions = ['پرداخت', 'دریافت'];
+
 const FinancialService = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
@@ -36,6 +38,7 @@ const FinancialService = () => {
         dateTime: new Date().toISOString(),
         ticketId: undefined,
         description: '',
+        type: 'پرداخت',            // default
     });
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
@@ -112,6 +115,7 @@ const FinancialService = () => {
             dateTime: new Date().toISOString(),
             ticketId: undefined,
             description: '',
+            type: 'پرداخت',
         });
         setFormError('');
         setShowFormModal(true);
@@ -125,6 +129,7 @@ const FinancialService = () => {
             dateTime: record.dateTime,
             ticketId: tickets.find(t => t.trackingCode === record.ticketTrackingCode)?.id,
             description: record.description,
+            type: record.type || 'پرداخت',
         });
         setFormError('');
         setShowFormModal(true);
@@ -175,6 +180,15 @@ const FinancialService = () => {
 
     const columns: Column<FinancialRecordListItem>[] = [
         { key: 'title', header: 'عنوان' },
+        {
+            key: 'type',
+            header: 'نوع',
+            render: (value) => (
+                <span className={`badge ${value === 'دریافت' ? 'bg-success' : 'bg-warning text-dark'}`}>
+          {value as string}
+        </span>
+            ),
+        },
         {
             key: 'amount',
             header: 'مبلغ (ریال)',
@@ -276,6 +290,12 @@ const FinancialService = () => {
                                     <label className="form-label">مبلغ (ریال) *</label>
                                     <input type="number" className="form-control" value={formData.amount}
                                            onChange={(e) => setFormData({ ...formData, amount: +e.target.value })} required />
+                                </div>
+                                <div className="col-md-6 mb-3">
+                                    <label className="form-label">نوع</label>
+                                    <select className="form-select" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                                        {typeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
                                 </div>
                                 <div className="col-md-6 mb-3">
                                     <label className="form-label">تاریخ و زمان</label>

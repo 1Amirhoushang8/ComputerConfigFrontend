@@ -7,14 +7,16 @@ export interface FinancialRecordListItem {
     dateTime: string;
     ticketTrackingCode: string | null;
     description: string;
+    type: string;
 }
 
 export interface CreateFinancialRecordPayload {
     title: string;
     amount: number;
-    dateTime: string;      // ISO string
+    dateTime: string;
     ticketId?: number;
     description: string;
+    type: string;
 }
 
 export type UpdateFinancialRecordPayload = CreateFinancialRecordPayload;

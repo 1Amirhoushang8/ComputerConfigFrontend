@@ -14,7 +14,8 @@ import {
     type UpdateTicketPayload,
 } from '../../API/ticketsApi';
 import  {fetchCustomers} from '../../API/customersApi';
-import { fetchWorkers, type WorkerListItem } from '../../API/workersApi';
+import { fetchWorkers } from '../../API/workersApi';
+import type {WorkerListItem} from '../../Models/WorkerListItem';
 import { isAxiosError } from 'axios';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
 import "./PCServices.scss";

@@ -22,7 +22,7 @@ export interface TicketListItem {
 export interface CreateTicketPayload {
     title: string;
     customerId: number;
-    workerId: number;          // required
+    workerId: number;
     serviceType: string;
     deviceType: string;
     brand: string;
@@ -33,10 +33,15 @@ export interface CreateTicketPayload {
 
 export type UpdateTicketPayload = CreateTicketPayload;
 
-export const fetchTickets = async (search?: string, status?: string): Promise<TicketListItem[]> => {
+export const fetchTickets = async (
+    search?: string,
+    status?: string,
+    customerId?: number
+): Promise<TicketListItem[]> => {
     const params: any = {};
     if (search) params.search = search;
     if (status) params.status = status;
+    if (customerId !== undefined && customerId !== null) params.customerId = customerId;
     const response = await api.get<TicketListItem[]>('/tickets', { params });
     return response.data;
 };

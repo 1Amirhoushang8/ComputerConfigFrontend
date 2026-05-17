@@ -5,6 +5,7 @@ import LoginPage from '../Features/LoginPage/LoginPage';
 import CustomerDashboard from '../Features/CustomerDashboard/CustomerDashboard';
 import ProtectedRoute from '../Components/ProtectedRoute';
 import routes from './index';
+import CustomerRequests from "../Features/AdminSeeUsersRequests/AdminSeeUsersRequests.tsx";
 
 const router = createBrowserRouter([
 
@@ -38,12 +39,12 @@ const router = createBrowserRouter([
             })),
 
             {
-                path: 'customer-services/:customerId',
-                element: <div>صفحه سرویس‌های مشتری (در حال ساخت)</div>,
-            },
-            {
                 path: 'customer-requests/:customerId',
-                element: <div>صفحه درخواست‌های مشتری (در حال ساخت)</div>,
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <CustomerRequests />
+                    </Suspense>
+                ),
             },
         ],
     },
