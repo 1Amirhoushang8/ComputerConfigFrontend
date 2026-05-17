@@ -289,19 +289,19 @@ const CustomersService = () => {
         {
             key: 'totalTickets',
             header: 'سرویس‌ها',
-            render: (value, row) => (
+            render: (value, _row) => (
                 <button
-                    className="btn btn-link p-0 fw-bold"
-                    onClick={() => navigate(`/app/customer-services/${row.id}`)}
+                    className="btn p-0 fw-bold"
+                    style={{ color: 'black', textDecoration: 'none' }}
+                    onClick={() => navigate('/app/PCServices')}
                     title="مشاهده سرویس‌های مشتری"
                 >
                     {value as number}
                 </button>
             ),
         },
-        // New column: Requests (مشاهده)
         {
-            key: 'totalTickets', // Reuse existing key; render ignores value
+            key: 'totalTickets',
             header: 'درخواست‌ها',
             render: (_value, row) => (
                 <button
@@ -314,7 +314,7 @@ const CustomersService = () => {
         },
     ];
 
-    // Actions – only edit/delete for admin (requests moved to its own column)
+    // Actions – only edit/delete for admin
     const actions: Action<CustomerListItem>[] = isAdmin
         ? [
             {

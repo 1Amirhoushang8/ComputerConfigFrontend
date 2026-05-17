@@ -1,11 +1,6 @@
 import { type ReactNode } from 'react';
 import './DataTable.scss';
-import type {Column, DataTableProps} from "../../Models/DataTable.ts"
-
-
-
-
-
+import type { Column, DataTableProps } from "../../Models/DataTable";
 
 const DataTable = <T,>({
                            data,
@@ -55,9 +50,9 @@ const DataTable = <T,>({
     };
 
     return (
-        <div className="table-responsive">
-            <table className="table table-striped table-hover align-middle data-table">
-                <thead className="table-dark">
+        <div className="data-table-scrollable">
+            <table className="table table-striped table-hover align-middle mb-0">
+                <thead className="table-dark sticky-header">
                 <tr>
                     <th scope="col">#</th>
                     {columns.map((col) => (

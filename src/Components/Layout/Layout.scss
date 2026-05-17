@@ -8,7 +8,13 @@ $glass-border: rgba(255, 245, 235, 0.15);
 $glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 $sidebar-width: 260px;
 
+// Wrapper to prevent horizontal scroll
+.layout-wrapper {
+  min-height: 100vh;
+  overflow: hidden;
+}
 
+// ---- Sidebar ----
 .sidebar-glass {
   width: $sidebar-width;
   backdrop-filter: blur(25px) saturate(120%);
@@ -22,10 +28,11 @@ $sidebar-width: 260px;
   box-shadow: $glass-shadow, 0 0 15px rgba($nude-accent, 0.1);
   color: #f5f0eb;
   position: relative;
-  z-index: 10;
-  transition: all 0.3s ease;
+  z-index: 100;          // above main content on mobile
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
 
-  // Top line – nude gold gradient
+  // Top line
   &::before {
     content: '';
     position: absolute;
@@ -44,7 +51,7 @@ $sidebar-width: 260px;
   }
 }
 
-// ===== Sidebar Title =====
+// Sidebar title
 .sidebar-title {
   font-weight: 700;
   font-size: 1.4rem;
@@ -57,7 +64,7 @@ $sidebar-width: 260px;
   margin-bottom: 2rem;
 }
 
-// ===== Nav Links =====
+// Nav links
 .sidebar-link {
   color: rgba($nude-light, 0.85) !important;
   border-radius: 12px;
@@ -78,7 +85,6 @@ $sidebar-width: 260px;
     transform: translateX(-5px);
   }
 
-  // Active state – soft nude gradient with warm glow
   &.active {
     color: #2b1f1a !important;
     background: linear-gradient(135deg, $nude-accent, $nude-light);
@@ -88,10 +94,56 @@ $sidebar-width: 260px;
   }
 }
 
-// ===== Main Content – subtle warm background =====
+// Main content
 .main-content {
   background: #faf7f4;
   position: relative;
   z-index: 5;
-  overflow-y: auto;
+  overflow-y: auto;         // vertical scroll for main content if needed
+  flex-grow: 1;
+  min-width: 0;             // prevents flex overflow
+}
+
+// ---- Responsive behavior ----
+@media (max-width: 767.98px) {
+  .sidebar-glass {
+    position: fixed;
+    top: 0;
+    right: 0;               // RTL: sidebar on right
+    height: 100vh;
+    transform: translateX(100%);   // hidden off-screen to the right
+    &.sidebar-open {
+      transform: translateX(0);
+    }
+    &.sidebar-closed {
+      transform: translateX(100%);
+    }
+  }
+
+  // Backdrop overlay
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 99;
+  }
+
+  .main-content {
+    width: 100%;
+    padding-top: 1rem;
+  }
+}
+
+// Keep desktop sidebar visible (no transform)
+@media (min-width: 768px) {
+  .sidebar-glass {
+    position: relative;
+    transform: none;
+    height: auto;
+    top: auto;
+    right: auto;
+  }
+  .sidebar-backdrop {
+    display: none;
+  }
 }

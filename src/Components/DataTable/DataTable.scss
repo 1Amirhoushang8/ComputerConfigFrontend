@@ -1,10 +1,54 @@
-.data-table {
-  th, td {
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-}
+.data-table-scrollable {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
 
-.sortable-column:hover {
-  background-color: #3b3b3b;
+  table {
+    width: 100%;
+    table-layout: auto;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  // Make header cells wrap as well
+  th {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  // Fixed header while scrolling
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #343a40;
+  }
+
+  .sticky-header th {
+    background-color: #343a40;
+    color: #fff;
+    border-bottom: 2px solid #495057;
+  }
+
+  // Sortable column hover
+  .sortable-column:hover {
+    background-color: #3b3b3b;
+  }
+
+  // Custom scrollbar (vertical)
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #c1a88b;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f0edea;
+  }
 }
