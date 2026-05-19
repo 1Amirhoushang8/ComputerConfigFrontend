@@ -2,21 +2,19 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import DataTable from '../../Components/DataTable/DataTable';
-import type { Column, Action } from '../../Models/DataTable';
 import type { CustomerListItem } from '../../Models/CustomerListItem';
 import {
     fetchTickets,
-    createTicket,
     updateTicket,
     updateTicketStatus,
     deleteTicket,
     type TicketListItem,
-    type CreateTicketPayload,
     type UpdateTicketPayload,
 } from '../../API/ticketsApi';
-import  {fetchCustomers} from '../../API/customersApi';
+import type { Column, Action } from '../../Models/DataTable';
+import { fetchCustomers } from '../../API/customersApi';
 import { fetchWorkers } from '../../API/workersApi';
-import type {WorkerListItem} from '../../Models/WorkerListItem';
+import type { WorkerListItem } from '../../Models/WorkerListItem';
 import { isAxiosError } from 'axios';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
 import "./PCServices.scss";
@@ -43,22 +41,6 @@ const PCServices = () => {
     const [sortColumn, setSortColumn] = useState<string>('');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-    // Add modal (admin only)
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [addForm, setAddForm] = useState<CreateTicketPayload>({
-        title: '',
-        customerId: 0,
-        workerId: 0,
-        serviceType: '',
-        deviceType: '',
-        brand: '',
-        model: '',
-        serialNumber: '',
-        problemDescription: '',
-    });
-    const [savingAdd, setSavingAdd] = useState(false);
-    const [addError, setAddError] = useState('');
-
     // Edit modal (admin only)
     const [showEditModal, setShowEditModal] = useState(false);
     const [editForm, setEditForm] = useState<UpdateTicketPayload>({
@@ -84,34 +66,28 @@ const PCServices = () => {
     const [customers, setCustomers] = useState<CustomerListItem[]>([]);
     const [workers, setWorkers] = useState<WorkerListItem[]>([]);
 
-    // System info modal (available to both roles)
+    // System info modal (both roles) – full detail
     const [showInfoModal, setShowInfoModal] = useState(false);
     const [infoTicket, setInfoTicket] = useState<TicketListItem | null>(null);
 
     const canView = user?.role === 'admin' || user?.role === 'worker';
     const isAdmin = user?.role === 'admin';
 
-    // Data loader – workers only fetched when admin
+    // Data loader
     const loadData = useCallback(async () => {
         if (!canView) return;
-
-        await new Promise(resolve => setTimeout(resolve, 0)); // avoid sync setState
-
+        await new Promise(resolve => setTimeout(resolve, 0));
         setLoading(true);
         setError('');
-
         try {
             const customerPromise = fetchCustomers();
-            // Only admin can fetch workers; workers get 403 otherwise
             const workerPromise = isAdmin ? fetchWorkers() : Promise.resolve([] as WorkerListItem[]);
             const ticketPromise = fetchTickets(searchTerm, statusFilter);
-
             const [ticketData, customerData, workerData] = await Promise.all([
                 ticketPromise,
                 customerPromise,
                 workerPromise,
             ]);
-
             setTickets(ticketData);
             setCustomers(customerData);
             setWorkers(workerData);
@@ -154,7 +130,7 @@ const PCServices = () => {
         return 0;
     });
 
-    // Status change – allowed for both roles
+    // Status change
     const handleStatusChange = async (ticketId: number, newStatus: string) => {
         try {
             const updatedTicket = await updateTicketStatus(ticketId, newStatus);
@@ -168,47 +144,7 @@ const PCServices = () => {
         }
     };
 
-    // Admin actions – guarded by isAdmin
-    const openAddModal = () => {
-        if (!isAdmin) return;
-        setAddForm({
-            title: '',
-            customerId: customers.length > 0 ? customers[0].id : 0,
-            workerId: workers.length > 0 ? workers[0].id : 0,
-            serviceType: '',
-            deviceType: '',
-            brand: '',
-            model: '',
-            serialNumber: '',
-            problemDescription: '',
-        });
-        setAddError('');
-        setShowAddModal(true);
-    };
-
-    const handleAddSave = async () => {
-        if (!isAdmin) return;
-        if (!addForm.title.trim() || !addForm.customerId || !addForm.workerId || !addForm.serviceType.trim()) {
-            setAddError('عنوان، مشتری، تعمیرکار و نوع سرویس الزامی هستند.');
-            return;
-        }
-        setSavingAdd(true);
-        setAddError('');
-        try {
-            await createTicket(addForm);
-            setShowAddModal(false);
-            loadData();
-        } catch (err: unknown) {
-            if (isAxiosError(err) && err.response) {
-                setAddError(err.response.data?.message || 'خطا در ایجاد سرویس');
-            } else {
-                setAddError('خطا در ایجاد سرویس');
-            }
-        } finally {
-            setSavingAdd(false);
-        }
-    };
-
+    // Edit handlers (admin only)
     const openEditModal = (ticket: TicketListItem) => {
         if (!isAdmin) return;
         setEditTicketId(ticket.id);
@@ -328,7 +264,6 @@ const PCServices = () => {
         },
     ];
 
-    // Actions – only admin sees edit/delete
     const actions: Action<TicketListItem>[] = isAdmin
         ? [
             {
@@ -352,12 +287,12 @@ const PCServices = () => {
 
             <div className="d-flex align-items-center gap-2 mb-4 flex-wrap search-row">
                 <div className="input-group" style={{ maxWidth: '250px' }}>
-          <span className="input-group-text bg-dark text-white border-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
-              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
-            </svg>
-          </span>
+                    <span className="input-group-text bg-dark text-white border-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
+                            <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
+                        </svg>
+                    </span>
                     <input
                         type="text"
                         className="form-control border-0 shadow-sm"
@@ -397,81 +332,6 @@ const PCServices = () => {
                 sortDirection={sortDirection}
                 onSort={handleSort}
             />
-
-            {/* Add Modal – admin only */}
-            {isAdmin && (
-                <div className={`modal fade ${showAddModal ? 'show' : ''}`} style={{ display: showAddModal ? 'block' : 'none' }} tabIndex={-1}>
-                    <div className="modal-dialog modal-lg">
-                        <div className="modal-content" dir="rtl">
-                            <div className="modal-header">
-                                <h5 className="modal-title">افزودن سرویس جدید</h5>
-                                <button type="button" className="btn-close" onClick={() => setShowAddModal(false)}></button>
-                            </div>
-                            <div className="modal-body">
-                                {addError && <div className="alert alert-danger">{addError}</div>}
-                                <div className="row">
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">عنوان *</label>
-                                        <input type="text" className="form-control" value={addForm.title}
-                                               onChange={(e) => setAddForm({ ...addForm, title: e.target.value })} required />
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">مشتری *</label>
-                                        <select className="form-select" value={addForm.customerId} onChange={(e) => setAddForm({ ...addForm, customerId: +e.target.value })} required>
-                                            <option value={0}>انتخاب کنید</option>
-                                            {customers.map((c) => (<option key={c.id} value={c.id}>{c.fullName}</option>))}
-                                        </select>
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">تعمیرکار *</label>
-                                        <select className="form-select" value={addForm.workerId} onChange={(e) => setAddForm({ ...addForm, workerId: +e.target.value })} required>
-                                            <option value={0}>انتخاب کنید</option>
-                                            {workers.map((w) => (<option key={w.id} value={w.id}>{w.fullName}</option>))}
-                                        </select>
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">نوع سرویس *</label>
-                                        <input type="text" className="form-control" value={addForm.serviceType}
-                                               onChange={(e) => setAddForm({ ...addForm, serviceType: e.target.value })} required placeholder="مثلاً سخت‌افزاری" />
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">نوع دستگاه</label>
-                                        <input type="text" className="form-control" value={addForm.deviceType}
-                                               onChange={(e) => setAddForm({ ...addForm, deviceType: e.target.value })} />
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">برند</label>
-                                        <input type="text" className="form-control" value={addForm.brand}
-                                               onChange={(e) => setAddForm({ ...addForm, brand: e.target.value })} />
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">مدل</label>
-                                        <input type="text" className="form-control" value={addForm.model}
-                                               onChange={(e) => setAddForm({ ...addForm, model: e.target.value })} />
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label className="form-label">سریال</label>
-                                        <input type="text" className="form-control" value={addForm.serialNumber}
-                                               onChange={(e) => setAddForm({ ...addForm, serialNumber: e.target.value })} />
-                                    </div>
-                                    <div className="col-12 mb-3">
-                                        <label className="form-label">توضیحات مشکل</label>
-                                        <textarea className="form-control" rows={3} value={addForm.problemDescription}
-                                                  onChange={(e) => setAddForm({ ...addForm, problemDescription: e.target.value })} />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button className="btn btn-secondary" onClick={() => setShowAddModal(false)} disabled={savingAdd}>انصراف</button>
-                                <button className="btn btn-primary" onClick={handleAddSave} disabled={savingAdd}>
-                                    {savingAdd ? 'در حال ثبت...' : 'ثبت سرویس'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {showAddModal && <div className="modal-backdrop fade show" onClick={() => setShowAddModal(false)}></div>}
 
             {/* Edit Modal – admin only */}
             {isAdmin && (
@@ -548,23 +408,82 @@ const PCServices = () => {
             )}
             {showEditModal && <div className="modal-backdrop fade show" onClick={() => setShowEditModal(false)}></div>}
 
-            {/* System Info Modal – both roles */}
+            {/* ===== FULL DETAIL PANEL (smaller & shifted left) ===== */}
             <div className={`modal fade ${showInfoModal ? 'show' : ''}`} style={{ display: showInfoModal ? 'block' : 'none' }} tabIndex={-1}>
-                <div className="modal-dialog">
+                <div className="modal-dialog modal-lg detail-panel">   {/* modal-lg + custom class */}
                     <div className="modal-content" dir="rtl">
-                        <div className="modal-header">
-                            <h5 className="modal-title">مشخصات سیستم</h5>
-                            <button type="button" className="btn-close" onClick={() => setShowInfoModal(false)}></button>
+                        <div className="modal-header bg-dark text-white">
+                            <h5 className="modal-title">جزئیات کامل سرویس</h5>
+                            <button type="button" className="btn-close btn-close-white" onClick={() => setShowInfoModal(false)}></button>
                         </div>
-                        <div className="modal-body">
+                        <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                             {infoTicket && (
-                                <dl className="row">
-                                    <dt className="col-sm-4">نوع دستگاه</dt><dd className="col-sm-8">{infoTicket.deviceType || '---'}</dd>
-                                    <dt className="col-sm-4">برند</dt><dd className="col-sm-8">{infoTicket.brand || '---'}</dd>
-                                    <dt className="col-sm-4">مدل</dt><dd className="col-sm-8">{infoTicket.model || '---'}</dd>
-                                    <dt className="col-sm-4">سریال</dt><dd className="col-sm-8">{infoTicket.serialNumber || '---'}</dd>
-                                    <dt className="col-sm-4">توضیحات</dt><dd className="col-sm-8">{infoTicket.problemDescription || '---'}</dd>
-                                </dl>
+                                <div className="row">
+                                    {/* Left column */}
+                                    <div className="col-md-6">
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">کد رهگیری</label>
+                                            <div className="fs-5">{infoTicket.trackingCode}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">عنوان</label>
+                                            <div className="fs-5">{infoTicket.title}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">مشتری</label>
+                                            <div className="fs-5">{infoTicket.customerName}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">تعمیرکار</label>
+                                            <div className="fs-5">{infoTicket.workerName || '---'}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">نوع سرویس</label>
+                                            <div className="fs-5">{infoTicket.serviceType}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">وضعیت</label>
+                                            <span className={`badge ${infoTicket.status === 'تعمیر شده' ? 'bg-success' : infoTicket.status === 'لغو شده' ? 'bg-danger' : 'bg-primary'}`}>
+                                                {infoTicket.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {/* Right column */}
+                                    <div className="col-md-6">
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">نوع دستگاه</label>
+                                            <div className="fs-5">{infoTicket.deviceType || '---'}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">برند</label>
+                                            <div className="fs-5">{infoTicket.brand || '---'}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">مدل</label>
+                                            <div className="fs-5">{infoTicket.model || '---'}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">سریال</label>
+                                            <div className="fs-5">{infoTicket.serialNumber || '---'}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">توضیحات</label>
+                                            <div className="fs-5">{infoTicket.problemDescription || '---'}</div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">تاریخ ایجاد</label>
+                                            <div className="fs-5">
+                                                {new Date(infoTicket.createdAt).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                        <div className="mb-3">
+                                            <label className="fw-bold text-muted">آخرین بروزرسانی</label>
+                                            <div className="fs-5">
+                                                {new Date(infoTicket.updatedAt).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </div>
                         <div className="modal-footer">
