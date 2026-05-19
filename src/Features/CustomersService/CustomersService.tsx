@@ -182,7 +182,7 @@ const CustomersService = () => {
         setAddFieldErrors({});
 
         try {
-            // ❗ SEND EMPTY STRING – NOT "ندارد"
+            // Send empty string – backend now accepts it
             const payload = {
                 ...addForm,
                 email: addForm.email.trim(),
@@ -236,7 +236,6 @@ const CustomersService = () => {
         setSavingEdit(true);
         setEditError('');
         try {
-            // ❗ SEND EMPTY STRING – NOT "ندارد"
             const payload = {
                 ...editForm,
                 email: editForm.email.trim(),
@@ -326,20 +325,10 @@ const CustomersService = () => {
                 </button>
             ),
         },
-        {
-            key: 'requestsAction' as keyof CustomerListItem,
-            header: 'درخواست‌ها',
-            render: (_value, row) => (
-                <button
-                    className="btn btn-sm btn-outline-info"
-                    onClick={() => navigate(`/app/customer-requests/${row.id}`)}
-                >
-                    مشاهده
-                </button>
-            ),
-        },
+        // ❌ "درخواست‌ها" column removed
     ];
 
+    // Actions – only edit/delete for admin
     const actions: Action<CustomerListItem>[] = isAdmin
         ? [
             {

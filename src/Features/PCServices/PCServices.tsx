@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../../Components/DataTable/DataTable';
 import type { Column, Action } from '../../Models/DataTable';
 import type { CustomerListItem } from '../../Models/CustomerListItem';
@@ -31,6 +32,7 @@ const statusOptions = [
 
 const PCServices = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const [tickets, setTickets] = useState<TicketListItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -376,7 +378,7 @@ const PCServices = () => {
                     {statusOptions.map((s) => (<option key={s} value={s}>{s}</option>))}
                 </select>
                 {isAdmin && (
-                    <button className="btn btn-nude ms-auto" onClick={openAddModal}>
+                    <button className="btn btn-nude ms-auto" onClick={() => navigate('/app/add-service')}>
                         + افزودن سرویس
                     </button>
                 )}

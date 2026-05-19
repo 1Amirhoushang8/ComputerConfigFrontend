@@ -1,0 +1,60 @@
+.add-service-wizard {
+  .progress-bar-bubbles {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    .bubble {
+      text-align: center;
+      flex: 1;
+      position: relative;
+      &:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: -50%;
+        width: 100%;
+        height: 2px;
+        background: #ddd;
+        z-index: 0;
+      }
+      span {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        border-radius: 50%;
+        background: #ddd;
+        color: #555;
+        position: relative;
+        z-index: 1;
+      }
+      small {
+        display: block;
+        margin-top: 5px;
+        font-size: 0.75rem;
+        color: #777;
+      }
+      &.filled span {
+        background: #d4a373;
+        color: #fff;
+      }
+      &.current span {
+        background: #2b1f1a;
+        color: #fff;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      }
+    }
+  }
+
+  .step-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .receipt {
+    background: #fdfaf7;
+    border: 1px solid #d4a373;
+  }
+}

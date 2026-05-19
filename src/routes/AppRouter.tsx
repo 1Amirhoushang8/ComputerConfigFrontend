@@ -1,11 +1,12 @@
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
-import { Suspense } from 'react';
+import {lazy, Suspense} from 'react';
 import LoadingSpinner from '../Components/LoadingSpinner/LoadingSpinner';
 import LoginPage from '../Features/LoginPage/LoginPage';
 import CustomerDashboard from '../Features/CustomerDashboard/CustomerDashboard';
 import ProtectedRoute from '../Components/ProtectedRoute';
 import routes from './index';
 import CustomerRequestsList from "../Features/CustomerRequestsList/CustomerRequestsList.tsx";
+const AddServiceWizard = lazy(() => import('../Features/AddServiceWizard/AddServiceWizard'));
 
 const router = createBrowserRouter([
 
@@ -43,6 +44,15 @@ const router = createBrowserRouter([
                 element: (
                     <Suspense fallback={<LoadingSpinner />}>
                         <CustomerRequestsList />
+                    </Suspense>
+                ),
+            },
+
+            {
+                path: 'add-service',
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <AddServiceWizard />
                     </Suspense>
                 ),
             },
