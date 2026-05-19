@@ -5,7 +5,7 @@ import LoginPage from '../Features/LoginPage/LoginPage';
 import CustomerDashboard from '../Features/CustomerDashboard/CustomerDashboard';
 import ProtectedRoute from '../Components/ProtectedRoute';
 import routes from './index';
-import CustomerRequests from "../Features/AdminSeeUsersRequests/AdminSeeUsersRequests.tsx";
+import CustomerRequestsList from "../Features/CustomerRequestsList/CustomerRequestsList.tsx";
 
 const router = createBrowserRouter([
 
@@ -39,10 +39,10 @@ const router = createBrowserRouter([
             })),
 
             {
-                path: 'customer-requests/:customerId',
+                path: 'CustomerRequestsList',
                 element: (
                     <Suspense fallback={<LoadingSpinner />}>
-                        <CustomerRequests />
+                        <CustomerRequestsList />
                     </Suspense>
                 ),
             },

@@ -149,10 +149,10 @@ const WorkersServices = () => {
         setSavingEdit(true);
         setEditError('');
         try {
-            // Send "ندارد" if email is empty
+            // Send empty string, NOT "ندارد"
             const payload = {
                 ...editForm,
-                email: editForm.email.trim() || 'ندارد',
+                email: editForm.email.trim(),
             };
             await updateWorker(selectedWorker.id, payload);
             closeEditModal();
@@ -197,7 +197,6 @@ const WorkersServices = () => {
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
-        // Only validate email format if it's non‑empty after trimming
         const emailTrimmed = addForm.email.trim();
         if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed))
             errors.email = 'ایمیل نامعتبر است.';
@@ -217,10 +216,10 @@ const WorkersServices = () => {
         setAddFieldErrors({});
 
         try {
-            // Send "ندارد" if email is empty
+            // Send empty string, NOT "ندارد"
             const payload = {
                 ...addForm,
-                email: addForm.email.trim() || 'ندارد',
+                email: addForm.email.trim(),
             };
             await registerWorker(payload);
             closeAddModal();
@@ -230,7 +229,6 @@ const WorkersServices = () => {
             if (isAxiosError(err) && err.response) {
                 const { status, data } = err.response;
 
-                // Backend validation errors (400)
                 if (status === 400) {
                     if (data.errors && typeof data.errors === 'object') {
                         const fieldMap: Record<string, keyof typeof addFieldErrors> = {

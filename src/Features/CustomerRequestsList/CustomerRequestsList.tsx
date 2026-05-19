@@ -1,8 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../Components/DataTable/DataTable';
-import type { Column, Action } from '../../Models/DataTable';
 import {
     fetchCustomerRequests,
     createCustomerRequest,
@@ -12,14 +10,14 @@ import {
     type CreateCustomerRequestPayload,
     type UpdateCustomerRequestPayload,
 } from '../../API/customerRequestsApi';
+import type { Column, Action } from '../../Models/DataTable';
 import { fetchTickets } from '../../API/ticketsApi';
+import { fetchCustomers } from '../../API/customersApi';
 import { isAxiosError } from 'axios';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
-import "./AdminSeeUsersRequests.scss";
+import "./CustomerRequestsList.scss";
 
-const CustomerRequests = () => {
-    const { customerId } = useParams<{ customerId: string }>();
-    const navigate = useNavigate();
+const CustomerRequestsList = () => {
     const { user } = useAuth();
     const canManage = user?.role === 'admin' || user?.role === 'worker';
 
@@ -27,10 +25,14 @@ const CustomerRequests = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortColumn, setSortColumn] = useState<string>('');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingRequest, setEditingRequest] = useState<CustomerRequestListItem | null>(null);
     const [formData, setFormData] = useState<CreateCustomerRequestPayload>({
-        customerId: Number(customerId),
+        customerId: 0,
         ticketId: null,
         message: '',
     });
@@ -40,20 +42,22 @@ const CustomerRequests = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<CustomerRequestListItem | null>(null);
 
-    // Customer's own tickets for the dropdown
+    // Dropdown data (all customers and tickets)
+    const [customers, setCustomers] = useState<{ id: number; fullName: string }[]>([]);
     const [tickets, setTickets] = useState<{ id: number; trackingCode: string }[]>([]);
 
     const loadData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const numCustId = Number(customerId);
-            const [requestsData, ticketData] = await Promise.all([
-                fetchCustomerRequests(numCustId),
-                fetchTickets(undefined, undefined, numCustId),
+            const [requestsData, customersData, ticketsData] = await Promise.all([
+                fetchCustomerRequests(),          // no customerId → all requests
+                fetchCustomers(),
+                fetchTickets(),
             ]);
             setRequests(requestsData);
-            setTickets(ticketData.map(t => ({ id: t.id, trackingCode: t.trackingCode })));
+            setCustomers(customersData.map(c => ({ id: c.id, fullName: c.fullName })));
+            setTickets(ticketsData.map(t => ({ id: t.id, trackingCode: t.trackingCode })));
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
                 setError(err.response.data?.message || 'خطا در بارگذاری داده‌ها');
@@ -63,7 +67,7 @@ const CustomerRequests = () => {
         } finally {
             setLoading(false);
         }
-    }, [customerId]);
+    }, []);
 
     useEffect(() => {
         loadData();
@@ -72,7 +76,7 @@ const CustomerRequests = () => {
     const openAddModal = () => {
         setEditingRequest(null);
         setFormData({
-            customerId: Number(customerId),
+            customerId: customers.length > 0 ? customers[0].id : 0,
             ticketId: null,
             message: '',
         });
@@ -92,8 +96,8 @@ const CustomerRequests = () => {
     };
 
     const handleFormSave = async () => {
-        if (!formData.message.trim()) {
-            setFormError('متن درخواست الزامی است.');
+        if (!formData.message.trim() || formData.customerId <= 0) {
+            setFormError('متن درخواست و مشتری الزامی هستند.');
             return;
         }
         setSaving(true);
@@ -134,7 +138,37 @@ const CustomerRequests = () => {
         }
     };
 
+    // Filter & sort
+    const filteredRequests = requests.filter(r =>
+        r.message.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+        (r.customerName || '').toLowerCase().includes(searchTerm.trim().toLowerCase())
+    );
+
+    const sortedRequests = [...filteredRequests].sort((a, b) => {
+        if (!sortColumn) return 0;
+        const valA = a[sortColumn as keyof CustomerRequestListItem];
+        const valB = b[sortColumn as keyof CustomerRequestListItem];
+        if (valA == null || valB == null) return 0;
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return sortDirection === 'asc' ? valA.localeCompare(valB, 'fa') : valB.localeCompare(valA, 'fa');
+        }
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+        return 0;
+    });
+
+    const handleSort = (columnKey: string) => {
+        if (sortColumn === columnKey) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(columnKey);
+            setSortDirection('asc');
+        }
+    };
+
     const columns: Column<CustomerRequestListItem>[] = [
+        { key: 'customerName', header: 'مشتری', render: (value) => (value as string) || '---' },
         { key: 'message', header: 'متن درخواست' },
         {
             key: 'ticketTrackingCode',
@@ -184,11 +218,26 @@ const CustomerRequests = () => {
 
     return (
         <div className="container-fluid customer-requests-page">
-            <div className="d-flex align-items-center gap-2 mb-3">
-                <button className="btn btn-outline-secondary" onClick={() => navigate(-1)}>
-                    ← بازگشت
-                </button>
-                <h2 className="mb-0">درخواست‌های مشتری</h2>
+            <h2 className="mb-3">درخواست‌های مشتریان</h2>
+
+            <div className="d-flex align-items-center gap-2 mb-4">
+                <div className="input-group" style={{ maxWidth: '320px' }}>
+          <span className="input-group-text bg-dark text-white border-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
+              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
+            </svg>
+          </span>
+                    <input
+                        type="text"
+                        className="form-control border-0 shadow-sm"
+                        placeholder="جستجو..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        dir="rtl"
+                        style={{ backgroundColor: '#f5ebe0' }}
+                    />
+                </div>
                 {canManage && (
                     <button className="btn btn-nude ms-auto" onClick={openAddModal}>
                         + افزودن درخواست
@@ -197,7 +246,7 @@ const CustomerRequests = () => {
             </div>
 
             <DataTable
-                data={requests}
+                data={sortedRequests}
                 columns={columns}
                 keyExtractor={(r) => r.id}
                 actions={actions}
@@ -205,6 +254,9 @@ const CustomerRequests = () => {
                 loading={loading}
                 error={error}
                 emptyMessage="هیچ درخواستی ثبت نشده است."
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
             />
 
             {/* Add/Edit Modal */}
@@ -218,6 +270,14 @@ const CustomerRequests = () => {
                         <div className="modal-body">
                             {formError && <div className="alert alert-danger">{formError}</div>}
                             <div className="row">
+                                <div className="col-12 mb-3">
+                                    <label className="form-label">مشتری *</label>
+                                    <select className="form-select" value={formData.customerId || ''}
+                                            onChange={(e) => setFormData({ ...formData, customerId: e.target.value ? +e.target.value : 0 })}>
+                                        <option value="">انتخاب کنید</option>
+                                        {customers.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                                    </select>
+                                </div>
                                 <div className="col-12 mb-3">
                                     <label className="form-label">متن درخواست *</label>
                                     <textarea className="form-control" rows={4} value={formData.message}
@@ -258,4 +318,4 @@ const CustomerRequests = () => {
     );
 };
 
-export default CustomerRequests;
+export default CustomerRequestsList;

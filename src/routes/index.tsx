@@ -5,6 +5,8 @@ const PCServices = lazy(() => import('../Features/PCServices/PCServices'));
 const WorkersServices = lazy(() => import('../Features/WorkersServices/WorkersServices'));
 const FinancialService = lazy(() => import('../Features/Financial/FinancialService'));
 const CustomersServices = lazy(() => import('../Features/CustomersService/CustomersService'));
+const CustomerRequestsList = lazy(() => import('../Features/CustomerRequestsList/CustomerRequestsList'));
+
 
 const routes: IRoute[] = [
     {
@@ -34,6 +36,14 @@ const routes: IRoute[] = [
         showInMenu: true,
         roles: ['admin'],
     },
+    {
+        path: 'CustomerRequestsList',
+        component: CustomerRequestsList,
+        name: 'درخواست‌ها',
+        showInMenu: true,
+        roles: ['admin', 'worker'],
+    },
+
 ];
 
 export default routes;

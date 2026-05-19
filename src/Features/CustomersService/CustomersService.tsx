@@ -165,7 +165,6 @@ const CustomersService = () => {
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
-        // Only validate email format if it's non‑empty after trimming
         const emailTrimmed = addForm.email.trim();
         if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed))
             errors.email = 'ایمیل نامعتبر است.';
@@ -180,11 +179,13 @@ const CustomersService = () => {
         if (!validateAddForm()) return;
         setSavingAdd(true);
         setAddError('');
+        setAddFieldErrors({});
+
         try {
-            // Send "ندارد" if email is empty
+            // ❗ SEND EMPTY STRING – NOT "ندارد"
             const payload = {
                 ...addForm,
-                email: addForm.email.trim() || 'ندارد',
+                email: addForm.email.trim(),
             };
             await registerCustomer(payload);
             closeAddModal();
@@ -192,10 +193,31 @@ const CustomersService = () => {
             setCustomers(data);
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
-                const msg = err.response.data?.message || err.response.data;
-                setAddError(typeof msg === 'string' ? msg : 'خطا در ثبت نام');
+                const { status, data } = err.response;
+
+                if (status === 400) {
+                    if (typeof data === 'string') {
+                        setAddError(data);
+                    } else if (data.message) {
+                        setAddError(data.message);
+                    } else if (data.errors && typeof data.errors === 'object') {
+                        const backendFieldErrors: typeof addFieldErrors = {};
+                        for (const [key, messages] of Object.entries(data.errors)) {
+                            const mappedKey = key.charAt(0).toLowerCase() + key.slice(1);
+                            backendFieldErrors[mappedKey as keyof typeof addFieldErrors] =
+                                Array.isArray(messages) ? messages[0] : String(messages);
+                        }
+                        setAddFieldErrors(backendFieldErrors);
+                    } else {
+                        setAddError('اطلاعات وارد شده معتبر نیست.');
+                    }
+                } else if (status === 401) {
+                    setAddError('لطفاً دوباره وارد شوید.');
+                } else {
+                    setAddError('خطا در ثبت نام');
+                }
             } else {
-                setAddError('خطا در ثبت نام');
+                setAddError('خطا در برقراری ارتباط با سرور.');
             }
         } finally {
             setSavingAdd(false);
@@ -214,10 +236,10 @@ const CustomersService = () => {
         setSavingEdit(true);
         setEditError('');
         try {
-            // Send "ندارد" if email is empty
+            // ❗ SEND EMPTY STRING – NOT "ندارد"
             const payload = {
                 ...editForm,
-                email: editForm.email.trim() || 'ندارد',
+                email: editForm.email.trim(),
             };
             await updateCustomer(selectedCustomer.id, payload);
             closeEditModal();
@@ -305,7 +327,7 @@ const CustomersService = () => {
             ),
         },
         {
-            key: 'totalTickets',
+            key: 'requestsAction' as keyof CustomerListItem,
             header: 'درخواست‌ها',
             render: (_value, row) => (
                 <button
@@ -318,7 +340,6 @@ const CustomersService = () => {
         },
     ];
 
-    // Actions – only edit/delete for admin
     const actions: Action<CustomerListItem>[] = isAdmin
         ? [
             {
@@ -393,7 +414,7 @@ const CustomersService = () => {
                 onSort={handleSort}
             />
 
-            {/* Add Customer Modal – no password field */}
+            {/* Add Customer Modal */}
             <div className={`modal fade ${showAddModal ? 'show' : ''}`} style={{ display: showAddModal ? 'block' : 'none' }} tabIndex={-1}>
                 <div className="modal-dialog">
                     <div className="modal-content" dir="rtl">
