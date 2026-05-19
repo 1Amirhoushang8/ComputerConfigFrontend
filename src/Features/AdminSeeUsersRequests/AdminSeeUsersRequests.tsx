@@ -21,8 +21,7 @@ const CustomerRequests = () => {
     const { customerId } = useParams<{ customerId: string }>();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
-    const canManage = isAdmin || user?.role === 'worker';
+    const canManage = user?.role === 'admin' || user?.role === 'worker';
 
     const [requests, setRequests] = useState<CustomerRequestListItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -41,16 +40,17 @@ const CustomerRequests = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<CustomerRequestListItem | null>(null);
 
-    // Tickets for dropdown (only those belonging to this customer)
+    // Customer's own tickets for the dropdown
     const [tickets, setTickets] = useState<{ id: number; trackingCode: string }[]>([]);
 
     const loadData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
+            const numCustId = Number(customerId);
             const [requestsData, ticketData] = await Promise.all([
-                fetchCustomerRequests(Number(customerId)),
-                fetchTickets(undefined, undefined, Number(customerId)),  // <-- filter by customer
+                fetchCustomerRequests(numCustId),
+                fetchTickets(undefined, undefined, numCustId),
             ]);
             setRequests(requestsData);
             setTickets(ticketData.map(t => ({ id: t.id, trackingCode: t.trackingCode })));
@@ -207,7 +207,7 @@ const CustomerRequests = () => {
                 emptyMessage="هیچ درخواستی ثبت نشده است."
             />
 
-            {/* Form Modal (Add/Edit) */}
+            {/* Add/Edit Modal */}
             <div className={`modal fade ${showFormModal ? 'show' : ''}`} style={{ display: showFormModal ? 'block' : 'none' }} tabIndex={-1}>
                 <div className="modal-dialog modal-lg">
                     <div className="modal-content" dir="rtl">

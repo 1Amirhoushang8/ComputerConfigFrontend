@@ -7,7 +7,7 @@ export interface CustomerRequestListItem {
     ticketId: number | null;
     ticketTrackingCode: string | null;
     message: string;
-    answer: boolean | null;          // true = yes, false = no, null = unanswered
+    answer: boolean | null;
     answeredAt: string | null;
     createdBy: string;
     createdAt: string;
