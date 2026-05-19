@@ -4,6 +4,7 @@ export interface CustomerRequestListItem {
     id: number;
     customerId: number;
     customerName: string | null;
+    title: string;
     ticketId: number | null;
     ticketTrackingCode: string | null;
     message: string;
@@ -15,6 +16,7 @@ export interface CustomerRequestListItem {
 
 export interface CreateCustomerRequestPayload {
     customerId: number;
+    title: string;
     ticketId?: number | null;
     message: string;
 }

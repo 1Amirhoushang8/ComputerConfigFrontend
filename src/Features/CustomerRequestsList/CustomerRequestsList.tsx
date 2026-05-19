@@ -26,6 +26,7 @@ const CustomerRequestsList = () => {
     const [error, setError] = useState('');
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterCustomerId, setFilterCustomerId] = useState<number | ''>('');
     const [sortColumn, setSortColumn] = useState<string>('');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -33,6 +34,7 @@ const CustomerRequestsList = () => {
     const [editingRequest, setEditingRequest] = useState<CustomerRequestListItem | null>(null);
     const [formData, setFormData] = useState<CreateCustomerRequestPayload>({
         customerId: 0,
+        title: '',
         ticketId: null,
         message: '',
     });
@@ -42,22 +44,27 @@ const CustomerRequestsList = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<CustomerRequestListItem | null>(null);
 
-    // Dropdown data (all customers and tickets)
+    // Dropdown data
     const [customers, setCustomers] = useState<{ id: number; fullName: string }[]>([]);
-    const [tickets, setTickets] = useState<{ id: number; trackingCode: string }[]>([]);
+    const [allTickets, setAllTickets] = useState<{ id: number; trackingCode: string; customerId: number }[]>([]);
 
     const loadData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
             const [requestsData, customersData, ticketsData] = await Promise.all([
-                fetchCustomerRequests(),          // no customerId → all requests
+                fetchCustomerRequests(),
                 fetchCustomers(),
                 fetchTickets(),
             ]);
             setRequests(requestsData);
             setCustomers(customersData.map(c => ({ id: c.id, fullName: c.fullName })));
-            setTickets(ticketsData.map(t => ({ id: t.id, trackingCode: t.trackingCode })));
+            // Store all tickets with their customerId for filtering later
+            setAllTickets(ticketsData.map(t => ({
+                id: t.id,
+                trackingCode: t.trackingCode,
+                customerId: t.customerId,
+            })));
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
                 setError(err.response.data?.message || 'خطا در بارگذاری داده‌ها');
@@ -73,10 +80,44 @@ const CustomerRequestsList = () => {
         loadData();
     }, [loadData]);
 
+    // Filter by customer dropdown + search
+    const filteredRequests = requests.filter(r => {
+        const matchesCustomer = filterCustomerId === '' || r.customerId === filterCustomerId;
+        const matchesSearch =
+            r.title.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+            r.message.toLowerCase().includes(searchTerm.trim().toLowerCase());
+        return matchesCustomer && matchesSearch;
+    });
+
+    const sortedRequests = [...filteredRequests].sort((a, b) => {
+        if (!sortColumn) return 0;
+        const valA = a[sortColumn as keyof CustomerRequestListItem];
+        const valB = b[sortColumn as keyof CustomerRequestListItem];
+        if (valA == null || valB == null) return 0;
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return sortDirection === 'asc' ? valA.localeCompare(valB, 'fa') : valB.localeCompare(valA, 'fa');
+        }
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+        return 0;
+    });
+
+    const handleSort = (columnKey: string) => {
+        if (sortColumn === columnKey) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(columnKey);
+            setSortDirection('asc');
+        }
+    };
+
+    // ---- Add / Edit handlers ----
     const openAddModal = () => {
         setEditingRequest(null);
         setFormData({
             customerId: customers.length > 0 ? customers[0].id : 0,
+            title: '',
             ticketId: null,
             message: '',
         });
@@ -88,6 +129,7 @@ const CustomerRequestsList = () => {
         setEditingRequest(req);
         setFormData({
             customerId: req.customerId,
+            title: req.title,
             ticketId: req.ticketId,
             message: req.message,
         });
@@ -95,9 +137,12 @@ const CustomerRequestsList = () => {
         setShowFormModal(true);
     };
 
+    // Get tickets that belong to the currently selected customer
+    const customerTickets = allTickets.filter(t => t.customerId === formData.customerId);
+
     const handleFormSave = async () => {
-        if (!formData.message.trim() || formData.customerId <= 0) {
-            setFormError('متن درخواست و مشتری الزامی هستند.');
+        if (!formData.title.trim() || !formData.message.trim() || formData.customerId <= 0) {
+            setFormError('عنوان، متن درخواست و مشتری الزامی هستند.');
             return;
         }
         setSaving(true);
@@ -138,43 +183,16 @@ const CustomerRequestsList = () => {
         }
     };
 
-    // Filter & sort
-    const filteredRequests = requests.filter(r =>
-        r.message.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
-        (r.customerName || '').toLowerCase().includes(searchTerm.trim().toLowerCase())
-    );
-
-    const sortedRequests = [...filteredRequests].sort((a, b) => {
-        if (!sortColumn) return 0;
-        const valA = a[sortColumn as keyof CustomerRequestListItem];
-        const valB = b[sortColumn as keyof CustomerRequestListItem];
-        if (valA == null || valB == null) return 0;
-        if (typeof valA === 'string' && typeof valB === 'string') {
-            return sortDirection === 'asc' ? valA.localeCompare(valB, 'fa') : valB.localeCompare(valA, 'fa');
-        }
-        if (typeof valA === 'number' && typeof valB === 'number') {
-            return sortDirection === 'asc' ? valA - valB : valB - valA;
-        }
-        return 0;
-    });
-
-    const handleSort = (columnKey: string) => {
-        if (sortColumn === columnKey) {
-            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortColumn(columnKey);
-            setSortDirection('asc');
-        }
-    };
-
+    // ---- Columns ----
     const columns: Column<CustomerRequestListItem>[] = [
+        { key: 'title', header: 'عنوان' },
         { key: 'customerName', header: 'مشتری', render: (value) => (value as string) || '---' },
-        { key: 'message', header: 'متن درخواست' },
         {
             key: 'ticketTrackingCode',
-            header: 'کد رهگیری',
+            header: 'سرویس مرتبط',
             render: (value) => (value as string) || '---',
         },
+        { key: 'message', header: 'متن درخواست' },
         {
             key: 'answer',
             header: 'پاسخ مشتری',
@@ -220,8 +238,9 @@ const CustomerRequestsList = () => {
         <div className="container-fluid customer-requests-page">
             <h2 className="mb-3">درخواست‌های مشتریان</h2>
 
-            <div className="d-flex align-items-center gap-2 mb-4">
-                <div className="input-group" style={{ maxWidth: '320px' }}>
+            {/* Filter bar */}
+            <div className="d-flex align-items-center gap-2 mb-4 flex-wrap">
+                <div className="input-group" style={{ maxWidth: '250px' }}>
           <span className="input-group-text bg-dark text-white border-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
               <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
@@ -238,6 +257,17 @@ const CustomerRequestsList = () => {
                         style={{ backgroundColor: '#f5ebe0' }}
                     />
                 </div>
+
+                <select
+                    className="form-select shadow-sm"
+                    style={{ maxWidth: '220px' }}
+                    value={filterCustomerId}
+                    onChange={(e) => setFilterCustomerId(e.target.value ? +e.target.value : '')}
+                >
+                    <option value="">همه مشتریان</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                </select>
+
                 {canManage && (
                     <button className="btn btn-nude ms-auto" onClick={openAddModal}>
                         + افزودن درخواست
@@ -271,30 +301,59 @@ const CustomerRequestsList = () => {
                             {formError && <div className="alert alert-danger">{formError}</div>}
                             <div className="row">
                                 <div className="col-12 mb-3">
+                                    <label className="form-label">عنوان *</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        value={formData.title}
+                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="col-12 mb-3">
                                     <label className="form-label">مشتری *</label>
-                                    <select className="form-select" value={formData.customerId || ''}
-                                            onChange={(e) => setFormData({ ...formData, customerId: e.target.value ? +e.target.value : 0 })}>
+                                    <select
+                                        className="form-select"
+                                        value={formData.customerId || ''}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                customerId: e.target.value ? +e.target.value : 0,
+                                                ticketId: null,   // reset linked service when customer changes
+                                            })
+                                        }
+                                    >
                                         <option value="">انتخاب کنید</option>
                                         {customers.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
                                     </select>
                                 </div>
                                 <div className="col-12 mb-3">
-                                    <label className="form-label">متن درخواست *</label>
-                                    <textarea className="form-control" rows={4} value={formData.message}
-                                              onChange={(e) => setFormData({ ...formData, message: e.target.value })} required />
+                                    <label className="form-label">سرویس مرتبط (اختیاری)</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.ticketId || ''}
+                                        onChange={(e) => setFormData({ ...formData, ticketId: e.target.value ? +e.target.value : null })}
+                                    >
+                                        <option value="">بدون سرویس</option>
+                                        {customerTickets.map(t => <option key={t.id} value={t.id}>{t.trackingCode}</option>)}
+                                    </select>
                                 </div>
                                 <div className="col-12 mb-3">
-                                    <label className="form-label">سرویس مرتبط (اختیاری)</label>
-                                    <select className="form-select" value={formData.ticketId || ''}
-                                            onChange={(e) => setFormData({ ...formData, ticketId: e.target.value ? +e.target.value : null })}>
-                                        <option value="">بدون سرویس</option>
-                                        {tickets.map(t => <option key={t.id} value={t.id}>{t.trackingCode}</option>)}
-                                    </select>
+                                    <label className="form-label">متن درخواست *</label>
+                                    <textarea
+                                        className="form-control"
+                                        rows={4}
+                                        value={formData.message}
+                                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                                        required
+                                    />
                                 </div>
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowFormModal(false)} disabled={saving}>انصراف</button>
+                            <button className="btn btn-secondary" onClick={() => setShowFormModal(false)} disabled={saving}>
+                                انصراف
+                            </button>
                             <button className="btn btn-primary" onClick={handleFormSave} disabled={saving}>
                                 {saving ? 'در حال ذخیره...' : 'ذخیره'}
                             </button>
