@@ -19,7 +19,6 @@ const Layout = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Close sidebar on route change (mobile)
     useEffect(() => {
         setSidebarOpen(false);
     }, [location.pathname]);
@@ -37,15 +36,38 @@ const Layout = () => {
         navigate('/', { replace: true });
     };
 
+    // Translate role to Persian
+    const roleInPersian = () => {
+        switch (user?.role) {
+            case 'admin': return 'ادمین';
+            case 'worker': return 'تعمیرکار';
+            case 'customer': return 'مشتری';
+            default: return '';
+        }
+    };
+
     return (
         <div className="d-flex layout-wrapper">
-            {/* Sidebar – always on desktop, overlay on mobile */}
             <aside
                 className={`sidebar-glass d-flex flex-column flex-shrink-0 p-3 ${
                     isMobile ? (sidebarOpen ? 'sidebar-open' : 'sidebar-closed') : ''
                 }`}
             >
                 <h5 className="sidebar-title mb-4 text-center">پنل ادمین تعمیرگاه 💻</h5>
+
+                {/* 👤 User info card */}
+                <div className="user-info-card mb-4">
+                    <div className="d-flex align-items-center gap-2">
+                        <div className="user-avatar">
+                            <span>{user?.fullName?.charAt(0)?.toUpperCase() || '👤'}</span>
+                        </div>
+                        <div className="user-details">
+                            <span className="user-name">{user?.fullName || 'کاربر'}</span>
+                            <span className="user-role">{roleInPersian()}</span>
+                        </div>
+                    </div>
+                </div>
+
                 <ul className="nav flex-column flex-grow-1">
                     {menuRoutes.map(route => (
                         <li className="nav-item" key={route.path}>
@@ -68,14 +90,11 @@ const Layout = () => {
                 </div>
             </aside>
 
-            {/* Overlay backdrop for mobile sidebar */}
             {isMobile && sidebarOpen && (
                 <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
             )}
 
-            {/* Main content */}
             <main className="flex-grow-1 p-4 main-content">
-                {/* Mobile menu toggle button */}
                 {isMobile && (
                     <button
                         className="btn btn-dark mb-3 d-inline-flex align-items-center gap-2"
