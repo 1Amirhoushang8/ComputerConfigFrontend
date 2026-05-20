@@ -97,7 +97,7 @@ const AddServiceWizard = () => {
             steps.push({ label: 'سؤالات سخت‌افزار' });
         }
         steps.push({ label: 'توضیحات تکمیلی' });
-        steps.push({ label: 'رسید' });   // always present
+        steps.push({ label: 'رسید' });
         return steps;
     };
 
@@ -111,7 +111,7 @@ const AddServiceWizard = () => {
 
     // Validation per step (receipt step always valid)
     const canProceed = (): boolean => {
-        if (isLast) return true; // receipt step
+        if (isLast) return true;
         switch (currentStep) {
             case 0:
                 return formData.title.trim() !== '' && formData.customerId !== 0 && formData.workerId !== 0 && formData.serviceType !== '';
@@ -124,7 +124,7 @@ const AddServiceWizard = () => {
             default: {
                 // service questions steps
                 const firstQuestionStep = 3;
-                const lastQuestionStep = steps.length - 2;
+                // const lastQuestionStep = steps.length - 2;
                 if (currentStep >= firstQuestionStep && currentStep < steps.length - 2) {
                     const allQuestions = formData.serviceType === 'software'
                         ? SOFTWARE_QUESTIONS
