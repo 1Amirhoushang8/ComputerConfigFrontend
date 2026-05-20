@@ -14,6 +14,7 @@ import type { Column, Action } from '../../Models/DataTable';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../Components/DataTable/DataTable';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
+import Pagination from '../../Components/Pagination/Pagination';
 
 const phoneRegex = /^09\d{9}$/;
 const personalIdRegex = /^\d{10}$/;
@@ -26,14 +27,17 @@ const CustomersService = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // ---------- Search state ----------
-    const [searchTerm, setSearchTerm] = useState('');
+    // ---------- Pagination state ----------
+    const [page, setPage] = useState(1);
+    const [total, setTotal] = useState(0);
+    const pageSize = 20;
 
-    // ---------- Sorting state ----------
+    // ---------- Search & Sort ----------
+    const [searchTerm, setSearchTerm] = useState('');
     const [sortColumn, setSortColumn] = useState<string>('');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-    // ---------- Add customer modal ----------
+    // ---------- Modals ----------
     const [showAddModal, setShowAddModal] = useState(false);
     const [addForm, setAddForm] = useState<RegisterCustomerPayload>({
         fullName: '',
@@ -51,7 +55,6 @@ const CustomersService = () => {
         personalId?: string;
     }>({});
 
-    // ---------- Edit modal ----------
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<CustomerListItem | null>(null);
     const [editForm, setEditForm] = useState<UpdateCustomerPayload>({
@@ -63,7 +66,6 @@ const CustomersService = () => {
     const [savingEdit, setSavingEdit] = useState(false);
     const [editError, setEditError] = useState('');
 
-    // ---------- Delete confirmation modal ----------
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [customerToDelete, setCustomerToDelete] = useState<CustomerListItem | null>(null);
 
@@ -94,8 +96,7 @@ const CustomersService = () => {
             await deleteCustomer(customerToDelete.id);
             setShowDeleteConfirm(false);
             setCustomerToDelete(null);
-            const data = await fetchCustomers();
-            setCustomers(data);
+            loadData();
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
                 alert(err.response.data?.message || 'خطا در حذف مشتری');
@@ -110,31 +111,41 @@ const CustomersService = () => {
         setCustomerToDelete(null);
     };
 
-    useEffect(() => {
+    // ---------- Data loader ----------
+    const loadData = useCallback(async () => {
         if (!canView) return;
-        (async () => {
-            setLoading(true);
-            setError('');
-            try {
-                const data = await fetchCustomers();
-                setCustomers(data);
-            } catch (err: unknown) {
-                if (isAxiosError(err) && err.response) {
-                    setError(err.response.data?.message || 'خطا در بارگذاری اطلاعات مشتریان');
-                } else {
-                    setError('خطا در بارگذاری اطلاعات مشتریان');
-                }
-            } finally {
-                setLoading(false);
+        setLoading(true);
+        setError('');
+        try {
+            const data = await fetchCustomers(
+                page,
+                pageSize,
+                searchTerm,
+                sortColumn || undefined,
+                sortDirection
+            );
+            setCustomers(data.items);
+            setTotal(data.total);
+        } catch (err: unknown) {
+            if (isAxiosError(err) && err.response) {
+                setError(err.response.data?.message || 'خطا در بارگذاری اطلاعات مشتریان');
+            } else {
+                setError('خطا در بارگذاری اطلاعات مشتریان');
             }
-        })();
-    }, [canView]);
+        } finally {
+            setLoading(false);
+        }
+    }, [canView, page, searchTerm, sortColumn, sortDirection]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     if (!canView) {
         return <Navigate to="/app/PCServices" replace />;
     }
 
-    // ---------- Add customer handlers ----------
+    // ---------- Add handlers ----------
     const openAddModal = () => {
         setAddForm({
             fullName: '',
@@ -155,13 +166,7 @@ const CustomersService = () => {
     };
 
     const validateAddForm = (): boolean => {
-        const errors: {
-            fullName?: string;
-            phoneNumber?: string;
-            email?: string;
-            personalId?: string;
-        } = {};
-
+        const errors: typeof addFieldErrors = {};
         if (!addForm.fullName.trim()) errors.fullName = 'نام کامل الزامی است.';
         if (!phoneRegex.test(addForm.phoneNumber))
             errors.phoneNumber = 'شماره موبایل باید ۱۱ رقمی و با ۰۹ شروع شود.';
@@ -170,7 +175,6 @@ const CustomersService = () => {
             errors.email = 'ایمیل نامعتبر است.';
         if (!personalIdRegex.test(addForm.personalId))
             errors.personalId = 'کد ملی باید دقیقاً ۱۰ رقم باشد.';
-
         setAddFieldErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -180,45 +184,29 @@ const CustomersService = () => {
         setSavingAdd(true);
         setAddError('');
         setAddFieldErrors({});
-
         try {
-            // Send empty string – backend now accepts it
-            const payload = {
-                ...addForm,
-                email: addForm.email.trim(),
-            };
+            const payload = { ...addForm, email: addForm.email.trim() };
             await registerCustomer(payload);
             closeAddModal();
-            const data = await fetchCustomers();
-            setCustomers(data);
+            loadData();
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
                 const { status, data } = err.response;
-
                 if (status === 400) {
-                    if (typeof data === 'string') {
-                        setAddError(data);
-                    } else if (data.message) {
-                        setAddError(data.message);
-                    } else if (data.errors && typeof data.errors === 'object') {
-                        const backendFieldErrors: typeof addFieldErrors = {};
+                    if (typeof data === 'string') setAddError(data);
+                    else if (data.message) setAddError(data.message);
+                    else if (data.errors) {
+                        const backendErrors: typeof addFieldErrors = {};
                         for (const [key, messages] of Object.entries(data.errors)) {
                             const mappedKey = key.charAt(0).toLowerCase() + key.slice(1);
-                            backendFieldErrors[mappedKey as keyof typeof addFieldErrors] =
+                            backendErrors[mappedKey as keyof typeof addFieldErrors] =
                                 Array.isArray(messages) ? messages[0] : String(messages);
                         }
-                        setAddFieldErrors(backendFieldErrors);
-                    } else {
-                        setAddError('اطلاعات وارد شده معتبر نیست.');
-                    }
-                } else if (status === 401) {
-                    setAddError('لطفاً دوباره وارد شوید.');
-                } else {
-                    setAddError('خطا در ثبت نام');
-                }
-            } else {
-                setAddError('خطا در برقراری ارتباط با سرور.');
-            }
+                        setAddFieldErrors(backendErrors);
+                    } else setAddError('اطلاعات وارد شده معتبر نیست.');
+                } else if (status === 401) setAddError('لطفاً دوباره وارد شوید.');
+                else setAddError('خطا در ثبت نام');
+            } else setAddError('خطا در برقراری ارتباط با سرور.');
         } finally {
             setSavingAdd(false);
         }
@@ -236,21 +224,15 @@ const CustomersService = () => {
         setSavingEdit(true);
         setEditError('');
         try {
-            const payload = {
-                ...editForm,
-                email: editForm.email.trim(),
-            };
+            const payload = { ...editForm, email: editForm.email.trim() };
             await updateCustomer(selectedCustomer.id, payload);
             closeEditModal();
-            const data = await fetchCustomers();
-            setCustomers(data);
+            loadData();
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
                 const msg = err.response.data?.message || err.response.data;
                 setEditError(typeof msg === 'string' ? msg : 'خطا در بروزرسانی');
-            } else {
-                setEditError('خطا در بروزرسانی');
-            }
+            } else setEditError('خطا در بروزرسانی');
         } finally {
             setSavingEdit(false);
         }
@@ -264,34 +246,15 @@ const CustomersService = () => {
             setSortColumn(columnKey);
             setSortDirection('asc');
         }
+        setPage(1);
     };
 
-    // ---------- Filter & sort customers ----------
-    const filteredCustomers = customers.filter((c) =>
-        c.fullName.toLowerCase().includes(searchTerm.trim().toLowerCase())
-    );
+    const handleSearch = (value: string) => {
+        setSearchTerm(value);
+        setPage(1);
+    };
 
-    const sortedCustomers = [...filteredCustomers].sort((a, b) => {
-        if (!sortColumn) return 0;
-        const valA = a[sortColumn as keyof CustomerListItem];
-        const valB = b[sortColumn as keyof CustomerListItem];
-
-        if (valA == null || valB == null) return 0;
-
-        if (typeof valA === 'string' && typeof valB === 'string') {
-            return sortDirection === 'asc'
-                ? valA.localeCompare(valB, 'fa')
-                : valB.localeCompare(valA, 'fa');
-        }
-
-        if (typeof valA === 'number' && typeof valB === 'number') {
-            return sortDirection === 'asc' ? valA - valB : valB - valA;
-        }
-
-        return 0;
-    });
-
-    // ---------- DataTable columns ----------
+    // ---------- Columns ----------
     const columns: Column<CustomerListItem>[] = [
         { key: 'fullName', header: 'نام کامل' },
         {
@@ -306,8 +269,8 @@ const CustomersService = () => {
             className: 'text-start',
             render: (value) => (
                 <span dir="ltr">
-          {(value as string)?.trim() ? (value as string) : 'ندارد'}
-        </span>
+                    {(value as string)?.trim() ? (value as string) : 'ندارد'}
+                </span>
             ),
         },
         { key: 'personalId', header: 'کد ملی' },
@@ -325,10 +288,8 @@ const CustomersService = () => {
                 </button>
             ),
         },
-        // ❌ "درخواست‌ها" column removed
     ];
 
-    // Actions – only edit/delete for admin
     const actions: Action<CustomerListItem>[] = isAdmin
         ? [
             {
@@ -352,31 +313,21 @@ const CustomersService = () => {
 
             <div className="d-flex align-items-center gap-2 mb-4">
                 <div className="input-group" style={{ maxWidth: '320px' }}>
-          <span className="input-group-text bg-dark text-white border-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
-              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
-            </svg>
-          </span>
+                    <span className="input-group-text bg-dark text-white border-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
+                            <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
+                        </svg>
+                    </span>
                     <input
                         type="text"
                         className="form-control border-0 shadow-sm"
                         placeholder="جستجو بر اساس نام..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => handleSearch(e.target.value)}
                         dir="rtl"
                         style={{ backgroundColor: '#f5ebe0' }}
                     />
-                    {searchTerm && (
-                        <button
-                            className="btn btn-outline-light border-0"
-                            onClick={() => setSearchTerm('')}
-                            type="button"
-                            style={{ backgroundColor: '#d4a373', color: '#fff' }}
-                        >
-                            ✕
-                        </button>
-                    )}
                 </div>
                 {isAdmin && (
                     <button className="btn btn-nude ms-auto" onClick={openAddModal}>
@@ -386,22 +337,19 @@ const CustomersService = () => {
             </div>
 
             <DataTable
-                data={sortedCustomers}
+                data={customers}
                 columns={columns}
                 keyExtractor={(c) => c.id}
                 actions={actions}
                 userRole={user?.role}
                 loading={loading}
                 error={error}
-                emptyMessage={
-                    searchTerm
-                        ? 'هیچ مشتری‌ای با این نام یافت نشد.'
-                        : 'هیچ مشتری‌ای ثبت نشده است.'
-                }
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
                 onSort={handleSort}
             />
+
+            <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
 
             {/* Add Customer Modal */}
             <div className={`modal fade ${showAddModal ? 'show' : ''}`} style={{ display: showAddModal ? 'block' : 'none' }} tabIndex={-1}>
@@ -574,10 +522,10 @@ const CustomersService = () => {
                 title="حذف مشتری"
                 message={
                     <span>
-            آیا از حذف مشتری
-            <strong> {customerToDelete?.fullName} </strong>
-            مطمئن هستید؟ این عمل قابل بازگشت نیست.
-          </span>
+                        آیا از حذف مشتری
+                        <strong> {customerToDelete?.fullName} </strong>
+                        مطمئن هستید؟ این عمل قابل بازگشت نیست.
+                    </span>
                 }
                 confirmLabel="حذف"
                 cancelLabel="انصراف"

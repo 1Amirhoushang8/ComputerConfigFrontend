@@ -1,16 +1,21 @@
 import api from './axiosInstance';
+import type { PaginatedResponse } from '../Models/DataTable';
+import type { CustomerListItem } from '../Models/CustomerListItem';
+import type { UpdateCustomerPayload } from '../Models/UpdateCustomerPayload';
+import type { RegisterCustomerPayload } from '../Models/RegisterCustomerPayload';
 
-import type {CustomerListItem} from "../Models/CustomerListItem.ts"
-import type {UpdateCustomerPayload} from "../Models/UpdateCustomerPayload.ts"
-import type {RegisterCustomerPayload} from "../Models/RegisterCustomerPayload.ts"
-
-
-
-
-
-
-export const fetchCustomers = async (): Promise<CustomerListItem[]> => {
-    const response = await api.get<CustomerListItem[]>('/customers');
+export const fetchCustomers = async (
+    page = 1,
+    pageSize = 20,
+    search?: string,
+    sortColumn?: string,
+    sortDirection?: string
+): Promise<PaginatedResponse<CustomerListItem>> => {
+    const params: any = { page, pageSize };
+    if (search) params.search = search;
+    if (sortColumn) params.sortColumn = sortColumn;
+    if (sortDirection) params.sortDirection = sortDirection;
+    const response = await api.get<PaginatedResponse<CustomerListItem>>('/customers', { params });
     return response.data;
 };
 
@@ -25,7 +30,6 @@ export const deleteCustomer = async (id: number) => {
 };
 
 export const registerCustomer = async (data: RegisterCustomerPayload) => {
-    // Backend generates a random password if empty
     const response = await api.post('/auth/register', { ...data, password: '' });
     return response.data;
 };

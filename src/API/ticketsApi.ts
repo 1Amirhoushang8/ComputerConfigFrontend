@@ -1,4 +1,5 @@
 import api from './axiosInstance';
+import type { PaginatedResponse } from '../Models/DataTable';
 
 export interface TicketListItem {
     id: number;
@@ -34,15 +35,21 @@ export interface CreateTicketPayload {
 export type UpdateTicketPayload = CreateTicketPayload;
 
 export const fetchTickets = async (
+    page = 1,
+    pageSize = 20,
     search?: string,
     status?: string,
-    customerId?: number
-): Promise<TicketListItem[]> => {
-    const params: any = {};
+    customerId?: number,
+    sortColumn?: string,
+    sortDirection?: string
+): Promise<PaginatedResponse<TicketListItem>> => {
+    const params: any = { page, pageSize };
     if (search) params.search = search;
     if (status) params.status = status;
     if (customerId !== undefined && customerId !== null) params.customerId = customerId;
-    const response = await api.get<TicketListItem[]>('/tickets', { params });
+    if (sortColumn) params.sortColumn = sortColumn;
+    if (sortDirection) params.sortDirection = sortDirection;
+    const response = await api.get<PaginatedResponse<TicketListItem>>('/tickets', { params });
     return response.data;
 };
 

@@ -1,4 +1,5 @@
 import api from './axiosInstance';
+import type { PaginatedResponse } from '../Models/DataTable';
 
 export interface CustomerRequestListItem {
     id: number;
@@ -23,10 +24,20 @@ export interface CreateCustomerRequestPayload {
 
 export type UpdateCustomerRequestPayload = CreateCustomerRequestPayload;
 
-export const fetchCustomerRequests = async (customerId?: number): Promise<CustomerRequestListItem[]> => {
-    const params: any = {};
-    if (customerId) params.customerId = customerId;
-    const response = await api.get<CustomerRequestListItem[]>('/customer-requests', { params });
+export const fetchCustomerRequests = async (
+    page = 1,
+    pageSize = 20,
+    search?: string,
+    customerId?: number,
+    sortColumn?: string,
+    sortDirection?: string
+): Promise<PaginatedResponse<CustomerRequestListItem>> => {
+    const params: any = { page, pageSize };
+    if (search) params.search = search;
+    if (customerId !== undefined && customerId !== null) params.customerId = customerId;
+    if (sortColumn) params.sortColumn = sortColumn;
+    if (sortDirection) params.sortDirection = sortDirection;
+    const response = await api.get<PaginatedResponse<CustomerRequestListItem>>('/customer-requests', { params });
     return response.data;
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../Components/DataTable/DataTable';
-import type { Column, Action } from '../../Models/DataTable';
+import Pagination from '../../Components/Pagination/Pagination';
 import {
     fetchFinancialRecords,
     createFinancialRecord,
@@ -11,9 +11,11 @@ import {
     type CreateFinancialRecordPayload,
     type UpdateFinancialRecordPayload,
 } from '../../API/financialApi';
+import type { Column, Action } from '../../Models/DataTable';
 import { fetchTickets } from '../../API/ticketsApi';
 import { isAxiosError } from 'axios';
 import ConfirmModal from '../../Components/ConfirmModal/ConfirmModal';
+import "./FinancialService.scss";
 
 const typeOptions = ['پرداخت', 'دریافت'];
 
@@ -25,6 +27,12 @@ const FinancialService = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // ---------- Pagination ----------
+    const [page, setPage] = useState(1);
+    const [total, setTotal] = useState(0);
+    const pageSize = 20;
+
+    // ---------- Search & Sort ----------
     const [searchTerm, setSearchTerm] = useState('');
     const [sortColumn, setSortColumn] = useState<string>('');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -38,7 +46,7 @@ const FinancialService = () => {
         dateTime: new Date().toISOString(),
         ticketId: undefined,
         description: '',
-        type: 'پرداخت',            // default
+        type: 'پرداخت',
     });
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
@@ -50,17 +58,25 @@ const FinancialService = () => {
     // Tickets for dropdown
     const [tickets, setTickets] = useState<{ id: number; trackingCode: string }[]>([]);
 
+    // ----- Load data -----
     const loadData = useCallback(async () => {
         if (!isAdmin) return;
         setLoading(true);
         setError('');
         try {
             const [financialData, ticketData] = await Promise.all([
-                fetchFinancialRecords(),
-                fetchTickets(),
+                fetchFinancialRecords(
+                    page,
+                    pageSize,
+                    searchTerm,
+                    sortColumn || undefined,
+                    sortDirection
+                ),
+                fetchTickets(1, 1000),
             ]);
-            setRecords(financialData);
-            setTickets(ticketData.map(t => ({ id: t.id, trackingCode: t.trackingCode })));
+            setRecords(financialData.items);
+            setTotal(financialData.total);
+            setTickets(ticketData.items.map(t => ({ id: t.id, trackingCode: t.trackingCode })));
         } catch (err: unknown) {
             if (isAxiosError(err) && err.response) {
                 setError(err.response.data?.message || 'خطا در بارگذاری داده‌ها');
@@ -70,7 +86,7 @@ const FinancialService = () => {
         } finally {
             setLoading(false);
         }
-    }, [isAdmin]);
+    }, [isAdmin, page, searchTerm, sortColumn, sortDirection]);
 
     useEffect(() => {
         loadData();
@@ -80,23 +96,11 @@ const FinancialService = () => {
         return <div className="alert alert-warning">دسترسی غیرمجاز</div>;
     }
 
-    // Sort & filter
-    const filteredRecords = records.filter(r =>
-        r.title.toLowerCase().includes(searchTerm.trim().toLowerCase())
-    );
-    const sortedRecords = [...filteredRecords].sort((a, b) => {
-        if (!sortColumn) return 0;
-        const valA = a[sortColumn as keyof FinancialRecordListItem];
-        const valB = b[sortColumn as keyof FinancialRecordListItem];
-        if (valA == null || valB == null) return 0;
-        if (typeof valA === 'string' && typeof valB === 'string') {
-            return sortDirection === 'asc' ? valA.localeCompare(valB, 'fa') : valB.localeCompare(valA, 'fa');
-        }
-        if (typeof valA === 'number' && typeof valB === 'number') {
-            return sortDirection === 'asc' ? valA - valB : valB - valA;
-        }
-        return 0;
-    });
+    // ----- Handlers that reset page -----
+    const handleSearch = (value: string) => {
+        setSearchTerm(value);
+        setPage(1);
+    };
 
     const handleSort = (columnKey: string) => {
         if (sortColumn === columnKey) {
@@ -105,6 +109,7 @@ const FinancialService = () => {
             setSortColumn(columnKey);
             setSortDirection('asc');
         }
+        setPage(1);
     };
 
     const openAddModal = () => {
@@ -185,8 +190,8 @@ const FinancialService = () => {
             header: 'نوع',
             render: (value) => (
                 <span className={`badge ${value === 'دریافت' ? 'bg-success' : 'bg-warning text-dark'}`}>
-          {value as string}
-        </span>
+                    {value as string}
+                </span>
             ),
         },
         {
@@ -199,11 +204,11 @@ const FinancialService = () => {
             header: 'تاریخ و زمان',
             render: (value) => (
                 <span>
-          {new Date(value as string).toLocaleDateString('fa-IR', {
-              year: 'numeric', month: 'long', day: 'numeric',
-              hour: '2-digit', minute: '2-digit',
-          })}
-        </span>
+                    {new Date(value as string).toLocaleDateString('fa-IR', {
+                        year: 'numeric', month: 'long', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                    })}
+                </span>
             ),
         },
         {
@@ -235,18 +240,18 @@ const FinancialService = () => {
 
             <div className="d-flex align-items-center gap-2 mb-4">
                 <div className="input-group" style={{ maxWidth: '320px' }}>
-          <span className="input-group-text bg-dark text-white border-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
-              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
-            </svg>
-          </span>
+                    <span className="input-group-text bg-dark text-white border-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
+                            <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
+                        </svg>
+                    </span>
                     <input
                         type="text"
                         className="form-control border-0 shadow-sm"
                         placeholder="جستجو بر اساس عنوان..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => handleSearch(e.target.value)}
                         dir="rtl"
                         style={{ backgroundColor: '#f5ebe0' }}
                     />
@@ -257,7 +262,7 @@ const FinancialService = () => {
             </div>
 
             <DataTable
-                data={sortedRecords}
+                data={records}
                 columns={columns}
                 keyExtractor={(r) => r.id}
                 actions={actions}
@@ -269,6 +274,8 @@ const FinancialService = () => {
                 sortDirection={sortDirection}
                 onSort={handleSort}
             />
+
+            <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
 
             {/* Form Modal (Add/Edit) */}
             <div className={`modal fade ${showFormModal ? 'show' : ''}`} style={{ display: showFormModal ? 'block' : 'none' }} tabIndex={-1}>
@@ -293,7 +300,8 @@ const FinancialService = () => {
                                 </div>
                                 <div className="col-md-6 mb-3">
                                     <label className="form-label">نوع</label>
-                                    <select className="form-select" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                                    <select className="form-select" value={formData.type}
+                                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
                                         {typeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                     </select>
                                 </div>
@@ -304,7 +312,8 @@ const FinancialService = () => {
                                 </div>
                                 <div className="col-md-6 mb-3">
                                     <label className="form-label">سرویس مرتبط</label>
-                                    <select className="form-select" value={formData.ticketId || ''} onChange={(e) => setFormData({ ...formData, ticketId: e.target.value ? +e.target.value : undefined })}>
+                                    <select className="form-select" value={formData.ticketId || ''}
+                                            onChange={(e) => setFormData({ ...formData, ticketId: e.target.value ? +e.target.value : undefined })}>
                                         <option value="">بدون سرویس</option>
                                         {tickets.map(t => <option key={t.id} value={t.id}>{t.trackingCode}</option>)}
                                     </select>

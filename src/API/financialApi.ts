@@ -1,4 +1,5 @@
 import api from './axiosInstance';
+import type { PaginatedResponse } from '../Models/DataTable';
 
 export interface FinancialRecordListItem {
     id: number;
@@ -21,8 +22,18 @@ export interface CreateFinancialRecordPayload {
 
 export type UpdateFinancialRecordPayload = CreateFinancialRecordPayload;
 
-export const fetchFinancialRecords = async (): Promise<FinancialRecordListItem[]> => {
-    const response = await api.get<FinancialRecordListItem[]>('/financial');
+export const fetchFinancialRecords = async (
+    page = 1,
+    pageSize = 20,
+    search?: string,
+    sortColumn?: string,
+    sortDirection?: string
+): Promise<PaginatedResponse<FinancialRecordListItem>> => {
+    const params: any = { page, pageSize };
+    if (search) params.search = search;
+    if (sortColumn) params.sortColumn = sortColumn;
+    if (sortDirection) params.sortDirection = sortDirection;
+    const response = await api.get<PaginatedResponse<FinancialRecordListItem>>('/financial', { params });
     return response.data;
 };
 
@@ -40,4 +51,3 @@ export const deleteFinancialRecord = async (id: number) => {
     const response = await api.delete(`/financial/${id}`);
     return response.data;
 };
-

@@ -1,16 +1,21 @@
 import api from './axiosInstance';
-import type {WorkerListItem} from "../Models/WorkerListItem.ts";
-import type {UpdateWorkerPayload} from "../Models/UpdateWorkerPayload.ts";
-import type {RegisterWorkerPayload} from "../Models/RegisterWorkerPayload.ts";
+import type { PaginatedResponse } from '../Models/DataTable';
+import type { WorkerListItem } from '../Models/WorkerListItem';
+import type { UpdateWorkerPayload } from '../Models/UpdateWorkerPayload';
+import type { RegisterWorkerPayload } from '../Models/RegisterWorkerPayload';
 
-
-
-
-
-
-
-export const fetchWorkers = async (): Promise<WorkerListItem[]> => {
-    const response = await api.get<WorkerListItem[]>('/workers');
+export const fetchWorkers = async (
+    page = 1,
+    pageSize = 20,
+    search?: string,
+    sortColumn?: string,
+    sortDirection?: string
+): Promise<PaginatedResponse<WorkerListItem>> => {
+    const params: any = { page, pageSize };
+    if (search) params.search = search;
+    if (sortColumn) params.sortColumn = sortColumn;
+    if (sortDirection) params.sortDirection = sortDirection;
+    const response = await api.get<PaginatedResponse<WorkerListItem>>('/workers', { params });
     return response.data;
 };
 
@@ -20,7 +25,6 @@ export const updateWorker = async (id: number, data: UpdateWorkerPayload) => {
 };
 
 export const registerWorker = async (data: RegisterWorkerPayload) => {
-    // Backend will generate a random password if none sent
     const response = await api.post('/auth/register', { ...data, password: '' });
     return response.data;
 };

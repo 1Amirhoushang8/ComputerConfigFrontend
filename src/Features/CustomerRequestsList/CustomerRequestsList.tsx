@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../Components/DataTable/DataTable';
+import Pagination from '../../Components/Pagination/Pagination';
 import {
     fetchCustomerRequests,
     createCustomerRequest,
@@ -21,15 +22,21 @@ const CustomerRequestsList = () => {
     const { user } = useAuth();
     const canManage = user?.role === 'admin' || user?.role === 'worker';
 
+    // Data & pagination
     const [requests, setRequests] = useState<CustomerRequestListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [page, setPage] = useState(1);
+    const [total, setTotal] = useState(0);
+    const pageSize = 20;
 
+    // Search, filter & sort
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCustomerId, setFilterCustomerId] = useState<number | ''>('');
     const [sortColumn, setSortColumn] = useState<string>('');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+    // Modals
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingRequest, setEditingRequest] = useState<CustomerRequestListItem | null>(null);
     const [formData, setFormData] = useState<CreateCustomerRequestPayload>({
@@ -48,19 +55,30 @@ const CustomerRequestsList = () => {
     const [customers, setCustomers] = useState<{ id: number; fullName: string }[]>([]);
     const [allTickets, setAllTickets] = useState<{ id: number; trackingCode: string; customerId: number }[]>([]);
 
+    // ----- Load paginated requests + dropdown data -----
     const loadData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const [requestsData, customersData, ticketsData] = await Promise.all([
-                fetchCustomerRequests(),
-                fetchCustomers(),
-                fetchTickets(),
+            // Fetch paginated requests
+            const requestsResponse = await fetchCustomerRequests(
+                page,
+                pageSize,
+                searchTerm || undefined,
+                filterCustomerId === '' ? undefined : filterCustomerId,
+                sortColumn || undefined,
+                sortDirection
+            );
+            setRequests(requestsResponse.items);
+            setTotal(requestsResponse.total);
+
+            // Fetch all customers & tickets for dropdowns (large page size)
+            const [customersResponse, ticketsResponse] = await Promise.all([
+                fetchCustomers(1, 1000),
+                fetchTickets(1, 1000),
             ]);
-            setRequests(requestsData);
-            setCustomers(customersData.map(c => ({ id: c.id, fullName: c.fullName })));
-            // Store all tickets with their customerId for filtering later
-            setAllTickets(ticketsData.map(t => ({
+            setCustomers(customersResponse.items.map(c => ({ id: c.id, fullName: c.fullName })));
+            setAllTickets(ticketsResponse.items.map(t => ({
                 id: t.id,
                 trackingCode: t.trackingCode,
                 customerId: t.customerId,
@@ -74,34 +92,22 @@ const CustomerRequestsList = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page, searchTerm, filterCustomerId, sortColumn, sortDirection]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
-    // Filter by customer dropdown + search
-    const filteredRequests = requests.filter(r => {
-        const matchesCustomer = filterCustomerId === '' || r.customerId === filterCustomerId;
-        const matchesSearch =
-            r.title.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
-            r.message.toLowerCase().includes(searchTerm.trim().toLowerCase());
-        return matchesCustomer && matchesSearch;
-    });
+    // ----- Handlers that reset page -----
+    const handleSearch = (value: string) => {
+        setSearchTerm(value);
+        setPage(1);
+    };
 
-    const sortedRequests = [...filteredRequests].sort((a, b) => {
-        if (!sortColumn) return 0;
-        const valA = a[sortColumn as keyof CustomerRequestListItem];
-        const valB = b[sortColumn as keyof CustomerRequestListItem];
-        if (valA == null || valB == null) return 0;
-        if (typeof valA === 'string' && typeof valB === 'string') {
-            return sortDirection === 'asc' ? valA.localeCompare(valB, 'fa') : valB.localeCompare(valA, 'fa');
-        }
-        if (typeof valA === 'number' && typeof valB === 'number') {
-            return sortDirection === 'asc' ? valA - valB : valB - valA;
-        }
-        return 0;
-    });
+    const handleCustomerFilter = (value: string) => {
+        setFilterCustomerId(value ? +value : '');
+        setPage(1);
+    };
 
     const handleSort = (columnKey: string) => {
         if (sortColumn === columnKey) {
@@ -110,9 +116,10 @@ const CustomerRequestsList = () => {
             setSortColumn(columnKey);
             setSortDirection('asc');
         }
+        setPage(1);
     };
 
-    // ---- Add / Edit handlers ----
+    // ----- Add / Edit handlers -----
     const openAddModal = () => {
         setEditingRequest(null);
         setFormData({
@@ -137,7 +144,6 @@ const CustomerRequestsList = () => {
         setShowFormModal(true);
     };
 
-    // Get tickets that belong to the currently selected customer
     const customerTickets = allTickets.filter(t => t.customerId === formData.customerId);
 
     const handleFormSave = async () => {
@@ -183,7 +189,7 @@ const CustomerRequestsList = () => {
         }
     };
 
-    // ---- Columns ----
+    // ----- Columns -----
     const columns: Column<CustomerRequestListItem>[] = [
         { key: 'title', header: 'عنوان' },
         { key: 'customerName', header: 'مشتری', render: (value) => (value as string) || '---' },
@@ -208,11 +214,11 @@ const CustomerRequestsList = () => {
             header: 'تاریخ',
             render: (value) => (
                 <span>
-          {new Date(value as string).toLocaleDateString('fa-IR', {
-              year: 'numeric', month: 'long', day: 'numeric',
-              hour: '2-digit', minute: '2-digit',
-          })}
-        </span>
+                    {new Date(value as string).toLocaleDateString('fa-IR', {
+                        year: 'numeric', month: 'long', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                    })}
+                </span>
             ),
         },
     ];
@@ -241,18 +247,18 @@ const CustomerRequestsList = () => {
             {/* Filter bar */}
             <div className="d-flex align-items-center gap-2 mb-4 flex-wrap">
                 <div className="input-group" style={{ maxWidth: '250px' }}>
-          <span className="input-group-text bg-dark text-white border-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
-              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
-            </svg>
-          </span>
+                    <span className="input-group-text bg-dark text-white border-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85z"/>
+                            <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z"/>
+                        </svg>
+                    </span>
                     <input
                         type="text"
                         className="form-control border-0 shadow-sm"
                         placeholder="جستجو..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => handleSearch(e.target.value)}
                         dir="rtl"
                         style={{ backgroundColor: '#f5ebe0' }}
                     />
@@ -262,7 +268,7 @@ const CustomerRequestsList = () => {
                     className="form-select shadow-sm"
                     style={{ maxWidth: '220px' }}
                     value={filterCustomerId}
-                    onChange={(e) => setFilterCustomerId(e.target.value ? +e.target.value : '')}
+                    onChange={(e) => handleCustomerFilter(e.target.value)}
                 >
                     <option value="">همه مشتریان</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
@@ -276,7 +282,7 @@ const CustomerRequestsList = () => {
             </div>
 
             <DataTable
-                data={sortedRequests}
+                data={requests}
                 columns={columns}
                 keyExtractor={(r) => r.id}
                 actions={actions}
@@ -288,6 +294,8 @@ const CustomerRequestsList = () => {
                 sortDirection={sortDirection}
                 onSort={handleSort}
             />
+
+            <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
 
             {/* Add/Edit Modal */}
             <div className={`modal fade ${showFormModal ? 'show' : ''}`} style={{ display: showFormModal ? 'block' : 'none' }} tabIndex={-1}>
@@ -319,7 +327,7 @@ const CustomerRequestsList = () => {
                                             setFormData({
                                                 ...formData,
                                                 customerId: e.target.value ? +e.target.value : 0,
-                                                ticketId: null,   // reset linked service when customer changes
+                                                ticketId: null,
                                             })
                                         }
                                     >

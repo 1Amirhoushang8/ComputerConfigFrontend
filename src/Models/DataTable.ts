@@ -8,6 +8,13 @@ export interface Column<T> {
     sortable?: boolean;
 }
 
+export interface PaginatedResponse<T> {
+    items: T[];
+    total: number;
+    page: number;
+    pageSize: number;
+}
+
 export interface Action<T> {
     label: string;
     onClick: (row: T) => void;
